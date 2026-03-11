@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Price Tracker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: #f9fafb;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 24px;
+    }
+
+    .card {
+      background: #1f2937;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+
+    h1, h2 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #d1d5db;
+    }
+
+    input, select, textarea, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #374151;
+      background: #111827;
+      color: #f9fafb;
+      font-size: 14px;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    button {
+      background: #2563eb;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .secondary-btn {
+      background: #059669;
+    }
+
+    .secondary-btn:hover {
+      background: #047857;
+    }
+
+    .status {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #0f172a;
+      border: 1px solid #374151;
+      min-height: 46px;
+    }
+
+    .links {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .links a {
+      text-decoration: none;
+      color: white;
+      background: #374151;
+      padding: 10px 14px;
+      border-radius: 10px;
+    }
+
+    .links a:hover {
+      background: #4b5563;
+    }
+
+    .note {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Product Price Tracker</h1>
+      <p>Run scrapers and open your dashboard from one place.</p>
+    </div>
+
+    <div class="card">
+      <h2>Run Scraper</h2>
+
+      <div class="grid">
+        <div>
+          <label for="site">Site</label>
+          <select id="site" onchange="toggleGsmaUrl()">
+            <option value="vijaysales">VijaySales</option>
+            <option value="webscraper">Webscraper Test Site</option>
+            <option value="gsmarena">GSMArena</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="pages">Pages</label>
+          <input id="pages" type="number" min="1" max="10" value="2" />
+        </div>
+
+        <div class="full">
+          <label for="keywords">Keywords (comma separated)</label>
+          <textarea id="keywords" placeholder="iphone, samsung s24, oneplus"></textarea>
+        </div>
+
+        <div class="full" id="gsmarenaUrlWrap" style="display:none;">
+          <label for="gsmarenaUrl">GSMArena URL</label>
+          <input
+            id="gsmarenaUrl"
+            type="text"
+            value="https://www.gsmarena.com/samsung-phones-9.php"
+          />
+        </div>
+
+        <div class="full">
+          <button onclick="runScraper()">Run Scraper</button>
+        </div>
+      </div>
+
+      <div id="status" class="status">Waiting...</div>
+      <div class="note">Backend API should be running on port 8000.</div>
+    </div>
+
+    <div class="card">
+      <h2>Open Apps</h2>
+      <div class="links">
+        <a href="http://localhost:8501" target="_blank">Open Dashboard</a>
+        <a href="http://localhost:8000/docs" target="_blank">Open API Docs</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleGsmaUrl() {
+      const site = document.getElementById("site").value;
+      const wrap = document.getElementById("gsmarenaUrlWrap");
+      wrap.style.display = site === "gsmarena" ? "block" : "none";
+    }
+
+    async function runScraper() {
+      const site = document.getElementById("site").value;
+      const keywordsRaw = document.getElementById("keywords").value;
+      const pages = parseInt(document.getElementById("pages").value || "2", 10);
+      const gsmarenaUrl = document.getElementById("gsmarenaUrl").value.trim();
+      const status = document.getElementById("status");
+
+      const keywords = keywordsRaw
+        .split(",")
+        .map(k => k.trim())
+        .filter(Boolean);
+
+      if (!keywords.length) {
+        status.innerText = "Please enter at least one keyword.";
+        return;
+      }
+
+      const payload = {
+        site,
+        keywords,
+        pages
+      };
+
+      if (site === "gsmarena") {
+        payload.url = gsmarenaUrl;
+      }
+
+      status.innerText = "Running scraper...";
+
+      try {
+        const res = await fetch("http://localhost:8000/scrape", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          status.innerText = data.error || "Scraper failed.";
+          return;
+        }
+
+        status.innerText = data.message || "Scraper finished successfully.";
+      } catch (err) {
+        status.innerText = "Could not connect to backend API.";
+      }
+    }
+
+    toggleGsmaUrl();
+  </script>
+</body>
+</html>
