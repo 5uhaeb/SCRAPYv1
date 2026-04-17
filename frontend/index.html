@@ -3,138 +3,334 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Product Price Tracker</title>
+  <meta name="description" content="Product Price Tracker — scrape and compare prices from VijaySales, GSMArena, and more. Powered by Supabase." />
+  <title>Product Price Tracker — SCRAPYv1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
+    :root {
+      --bg-primary: #0a0e1a;
+      --bg-card: #111827;
+      --bg-input: #0d1224;
+      --border: #1e293b;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --green: #10b981;
+      --green-hover: #059669;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --glow: rgba(99, 102, 241, 0.15);
+      --radius: 12px;
+    }
+
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
     body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #111827;
-      color: #f9fafb;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
     }
 
     .container {
-      max-width: 1000px;
-      margin: 40px auto;
-      padding: 24px;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 20px;
     }
 
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6366f1, #a78bfa, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .badge.live { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .badge.offline { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+    /* Cards */
     .card {
-      background: #1f2937;
-      border-radius: 14px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
 
-    h1, h2 {
-      margin-top: 0;
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+      box-shadow: 0 4px 24px var(--glow);
     }
 
+    .card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    /* Form */
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: 12px;
     }
 
-    .full {
-      grid-column: 1 / -1;
-    }
+    .full { grid-column: 1 / -1; }
 
     label {
       display: block;
       margin-bottom: 6px;
-      font-size: 14px;
-      color: #d1d5db;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    input, select, textarea, button {
+    input, select, textarea {
       width: 100%;
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #374151;
-      background: #111827;
-      color: #f9fafb;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-primary);
       font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--glow);
     }
 
     textarea {
-      min-height: 90px;
+      min-height: 70px;
       resize: vertical;
     }
 
-    button {
-      background: #2563eb;
+    select option {
+      background: var(--bg-card);
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
       border: none;
       cursor: pointer;
-      font-weight: bold;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
-    button:hover {
-      background: #1d4ed8;
+    .btn-primary {
+      background: var(--accent);
+      color: white;
     }
 
-    .secondary-btn {
-      background: #059669;
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
     }
 
-    .secondary-btn:hover {
-      background: #047857;
+    .btn-primary:active {
+      transform: translateY(0);
     }
 
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Status */
     .status {
       margin-top: 14px;
-      padding: 12px;
-      border-radius: 10px;
-      background: #0f172a;
-      border: 1px solid #374151;
-      min-height: 46px;
-    }
-
-    .links {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-
-    .links a {
-      text-decoration: none;
-      color: white;
-      background: #374151;
       padding: 10px 14px;
-      border-radius: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      min-height: 40px;
+      display: flex;
+      align-items: center;
     }
 
-    .links a:hover {
-      background: #4b5563;
+    .status.success { border-color: rgba(16, 185, 129, 0.4); color: #34d399; }
+    .status.error { border-color: rgba(239, 68, 68, 0.4); color: #f87171; }
+    .status.running { border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc; }
+
+    /* Links */
+    .links {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .link-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--text-primary);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .link-btn:hover {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .link-btn .icon {
+      font-size: 16px;
+    }
+
+    /* API URL Config */
+    .config-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .config-bar label {
+      margin: 0;
+      white-space: nowrap;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .config-bar input {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot.green { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+    .dot.red { background: #ef4444; }
+    .dot.pulse { animation: pulse 1.5s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
     }
 
     .note {
-      font-size: 13px;
-      color: #9ca3af;
+      font-size: 11px;
+      color: var(--text-muted);
       margin-top: 8px;
     }
 
-    @media (max-width: 768px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 600px) {
+      .grid, .links { grid-template-columns: 1fr; }
+      .container { padding: 24px 16px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="card">
+
+    <!-- Header -->
+    <div class="header">
+      <span class="badge live" id="apiBadge">● API Connected</span>
       <h1>Product Price Tracker</h1>
-      <p>Run scrapers and open your dashboard from one place.</p>
+      <p>Scrape prices from VijaySales, GSMArena &amp; more — stored in Supabase</p>
     </div>
 
+    <!-- API Config -->
+    <div class="config-bar">
+      <label>API:</label>
+      <input
+        id="apiUrl"
+        type="text"
+        value="http://localhost:8000"
+        placeholder="https://your-render-app.onrender.com"
+        onchange="checkApi()"
+      />
+      <span class="dot green" id="apiDot"></span>
+    </div>
+
+    <!-- Scraper Card -->
     <div class="card">
-      <h2>Run Scraper</h2>
+      <h2>⚡ Run Scraper</h2>
 
       <div class="grid">
         <div>
@@ -166,82 +362,135 @@
         </div>
 
         <div class="full">
-          <button onclick="runScraper()">Run Scraper</button>
+          <button class="btn btn-primary" id="scrapeBtn" onclick="runScraper()">
+            Run Scraper
+          </button>
         </div>
       </div>
 
-      <div id="status" class="status">Waiting...</div>
-      <div class="note">Backend API should be running on port 8000.</div>
+      <div id="status" class="status">Waiting for input...</div>
+      <div class="note">Tip: Enter your Render API URL above for production use.</div>
     </div>
 
+    <!-- Links Card -->
     <div class="card">
-      <h2>Open Apps</h2>
+      <h2>🔗 Open Apps</h2>
       <div class="links">
-        <a href="http://localhost:8501" target="_blank">Open Dashboard</a>
-        <a href="http://localhost:8000/docs" target="_blank">Open API Docs</a>
+        <a class="link-btn" id="dashboardLink" href="#" target="_blank">
+          <span class="icon">📊</span> Dashboard
+        </a>
+        <a class="link-btn" id="apiDocsLink" href="#" target="_blank">
+          <span class="icon">📄</span> API Docs
+        </a>
+        <a class="link-btn" href="https://supabase.com/dashboard" target="_blank">
+          <span class="icon">🗄️</span> Supabase Console
+        </a>
+        <a class="link-btn" href="https://github.com/5uhaeb/SCRAPYv1" target="_blank">
+          <span class="icon">🐙</span> GitHub Repo
+        </a>
       </div>
     </div>
+
   </div>
 
   <script>
-    function toggleGsmaUrl() {
-      const site = document.getElementById("site").value;
-      const wrap = document.getElementById("gsmarenaUrlWrap");
-      wrap.style.display = site === "gsmarena" ? "block" : "none";
+    // ─── Config ───
+    const DASHBOARD_URL = "https://share.streamlit.io"; // Update after Streamlit Cloud deploy
+
+    function getApiBase() {
+      return (document.getElementById("apiUrl").value || "http://localhost:8000").replace(/\/+$/, "");
     }
 
+    function updateLinks() {
+      const base = getApiBase();
+      document.getElementById("apiDocsLink").href = base + "/docs";
+      document.getElementById("dashboardLink").href = DASHBOARD_URL;
+    }
+
+    // ─── API Health Check ───
+    async function checkApi() {
+      updateLinks();
+      const badge = document.getElementById("apiBadge");
+      const dot = document.getElementById("apiDot");
+
+      try {
+        const res = await fetch(getApiBase() + "/", { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          badge.className = "badge live";
+          badge.textContent = "● API Connected";
+          dot.className = "dot green";
+        } else {
+          throw new Error("Not OK");
+        }
+      } catch {
+        badge.className = "badge offline";
+        badge.textContent = "○ API Offline";
+        dot.className = "dot red";
+      }
+    }
+
+    // ─── GSMArena URL toggle ───
+    function toggleGsmaUrl() {
+      const site = document.getElementById("site").value;
+      document.getElementById("gsmarenaUrlWrap").style.display =
+        site === "gsmarena" ? "block" : "none";
+    }
+
+    // ─── Run Scraper ───
     async function runScraper() {
       const site = document.getElementById("site").value;
       const keywordsRaw = document.getElementById("keywords").value;
       const pages = parseInt(document.getElementById("pages").value || "2", 10);
       const gsmarenaUrl = document.getElementById("gsmarenaUrl").value.trim();
       const status = document.getElementById("status");
+      const btn = document.getElementById("scrapeBtn");
 
-      const keywords = keywordsRaw
-        .split(",")
-        .map(k => k.trim())
-        .filter(Boolean);
+      const keywords = keywordsRaw.split(",").map(k => k.trim()).filter(Boolean);
 
       if (!keywords.length) {
-        status.innerText = "Please enter at least one keyword.";
+        status.textContent = "Please enter at least one keyword.";
+        status.className = "status error";
         return;
       }
 
-      const payload = {
-        site,
-        keywords,
-        pages
-      };
+      const payload = { site, keywords, pages };
+      if (site === "gsmarena") payload.url = gsmarenaUrl;
 
-      if (site === "gsmarena") {
-        payload.url = gsmarenaUrl;
-      }
-
-      status.innerText = "Running scraper...";
+      // UI: running state
+      status.innerHTML = '<span class="spinner"></span>&nbsp; Running scraper...';
+      status.className = "status running";
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Scraping...';
 
       try {
-        const res = await fetch("http://localhost:8000/scrape", {
+        const res = await fetch(getApiBase() + "/scrape", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
 
         const data = await res.json();
 
         if (!res.ok) {
-          status.innerText = data.error || "Scraper failed.";
-          return;
+          status.textContent = "Error: " + (data.detail || data.error || "Scraper failed.");
+          status.className = "status error";
+        } else {
+          status.textContent = "✓ " + (data.message || "Scraper finished successfully.");
+          status.className = "status success";
         }
-
-        status.innerText = data.message || "Scraper finished successfully.";
       } catch (err) {
-        status.innerText = "Could not connect to backend API.";
+        status.textContent = "Could not connect to API. Is the backend running?";
+        status.className = "status error";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = "Run Scraper";
       }
     }
 
+    // ─── Init ───
     toggleGsmaUrl();
+    updateLinks();
+    checkApi();
   </script>
 </body>
 </html>

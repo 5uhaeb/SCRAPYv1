@@ -72,7 +72,6 @@ def scrape_amazon(page, keyword: str, max_pages: int):
             price_whole = safe_text(card.locator("span.a-price-whole"))
             price = clean_price(price_whole)
 
-            reviews_count = clean_price(reviews_text) if reviews_text else None
             rating_text = safe_text(card.locator("span.a-icon-alt")) or ""
             rating = clean_float(rating_text.split(" ")[0]) if rating_text else None
 
@@ -191,9 +190,6 @@ def run(keywords: list[str], max_pages: int = MAX_PAGES):
                 print("Flipkart scrape error:", e)
 
         browser.close()
-
-    saved = upsert_products(all_items)
-    print(f"\nTotal scraped: {len(all_items)} | Saved/Upserted: {saved}")
 
     saved = upsert_products(all_items)
     print(f"\nTotal scraped: {len(all_items)} | Saved/Upserted: {saved}")
