@@ -32,6 +32,14 @@ def home():
     return {"message": "Scraper API is running"}
 
 
+@app.post("/scrape")
+def scrape(req: ScrapeRequest):
+    site = req.site.strip().lower()
+    keywords = [k.strip() for k in req.keywords if k.strip()]
+
+    if not keywords:
+        raise HTTPException(status_code=400, detail="No keywords provided")
+
     try:
         results = []
         if site == "vijaysales":
@@ -50,4 +58,5 @@ def home():
             
         return {"message": msg, "products": results}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
