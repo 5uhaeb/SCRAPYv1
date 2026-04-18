@@ -228,6 +228,13 @@
 
     <!-- Scraper Card -->
     <div class="card">
+      <h2>🌐 API Backend URL</h2>
+      <div class="grid" style="margin-bottom: 20px;">
+        <div class="full">
+          <input id="apiUrl" type="url" placeholder="https://your-backend-app.koyeb.app" value="http://localhost:8000" onchange="checkApi()" />
+        </div>
+      </div>
+
       <h2>⚡ Run Scraper</h2>
 
       <div class="grid">
@@ -263,17 +270,17 @@
       </div>
 
       <div id="status" class="status">Waiting for input...</div>
-      <div class="note">API runs as a serverless function on the same domain — no extra backend needed.</div>
+      <div class="note">Enter your Koyeb or external backend URL above.</div>
     </div>
 
     <!-- Links Card -->
     <div class="card">
       <h2>🔗 Quick Links</h2>
       <div class="links">
-        <a class="link-btn" href="/api" target="_blank">
+        <a class="link-btn" href="#" onclick="window.open(document.getElementById('apiUrl').value, '_blank'); return false;">
           <span>📡</span> API Health
         </a>
-        <a class="link-btn" href="/api/docs" target="_blank">
+        <a class="link-btn" href="#" onclick="window.open(document.getElementById('apiUrl').value + '/docs', '_blank'); return false;">
           <span>📄</span> API Docs
         </a>
         <a class="link-btn" href="https://supabase.com/dashboard" target="_blank">
@@ -297,8 +304,12 @@
     // ─── API Health Check ───
     async function checkApi() {
       const badge = document.getElementById("apiBadge");
+      const apiUrl = document.getElementById("apiUrl").value.replace(/\/$/, "");
+      badge.className = "badge checking";
+      badge.textContent = "⟳ Checking API...";
+      
       try {
-        const res = await fetch("/api/health", { signal: AbortSignal.timeout(8000) });
+        const res = await fetch(`${apiUrl}/`, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           badge.className = "badge live";
           badge.textContent = "● API Connected";
@@ -338,7 +349,8 @@
       btn.innerHTML = '<span class="spinner"></span> Scraping...';
 
       try {
-        const res = await fetch("/api/scrape", {
+        const baseUrl = document.getElementById("apiUrl").value.replace(/\/$/, "");
+        const res = await fetch(`${baseUrl}/scrape`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
