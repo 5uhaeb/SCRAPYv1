@@ -60,7 +60,7 @@ def scrape_category(url: str, pages: int = 5) -> list[dict]:
                     "price": price,
                     "rating": None,
                     "reviews_count": reviews_count,
-                    "scraped_at": datetime.now(timezone.utc),
+                    "scraped_at": datetime.now(timezone.utc).isoformat(),
                     "desc": desc,  # not stored in DB; used only for filtering
                 })
     return out
@@ -94,6 +94,7 @@ def run(keywords: list[str], pages_per_cat: int = 5):
 
     saved = upsert_products(final)
     print(f"Total matched: {len(final)} | Saved/Upserted: {saved}")
+    return final
 
 if __name__ == "__main__":
     run(["laptop", "tablet", "iphone"])

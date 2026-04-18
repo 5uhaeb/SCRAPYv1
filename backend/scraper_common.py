@@ -109,3 +109,4 @@ def run_scrape(profile_name: str, url: str, keywords: list[str], json_out: str =
 
     saved = upsert_products(matched)
     print(f"Total matched this run: {len(matched)} | Saved/Upserted: {saved}")
+    return matched

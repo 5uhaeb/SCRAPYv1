@@ -183,6 +183,7 @@ def run(keywords: list[str], pages: int = DEFAULT_PAGES, json_out: str = JSON_OU
 
     saved = upsert_products(matched)
     print(f"Total matched this run: {len(matched)} | Saved/Upserted: {saved}")
+    return matched
 
 if __name__ == "__main__":
     user_input = input("Keywords: ").strip()

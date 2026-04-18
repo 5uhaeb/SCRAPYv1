@@ -32,26 +32,22 @@ def home():
     return {"message": "Scraper API is running"}
 
 
-@app.post("/scrape")
-def scrape(req: ScrapeRequest):
-    site = req.site.strip().lower()
-    keywords = [k.strip() for k in req.keywords if k.strip()]
-
-    if not keywords:
-        raise HTTPException(status_code=400, detail="No keywords provided")
-
-    if site == "vijaysales":
-        run_vijaysales(keywords, pages=req.pages, json_out="vijaysales_mobiles.json")
-        return {"message": "VijaySales scraping complete"}
-
-    elif site == "webscraper":
-        run_webscraper(keywords, pages_per_cat=req.pages)
-        return {"message": "Webscraper scraping complete"}
-
-    elif site == "gsmarena":
-        if not req.url or not req.url.strip():
-            raise HTTPException(status_code=400, detail="GSMArena URL is required")
-        run_scrape("gsmarena", req.url.strip(), keywords, json_out="scraped.json")
-        return {"message": "GSMArena scraping complete"}
-
-    raise HTTPException(status_code=400, detail="Unsupported site")
+    try:
+        results = []
+        if site == "vijaysales":
+            results = run_vijaysales(keywords, pages=req.pages, json_out="vijaysales_mobiles.json")
+            msg = f"VijaySales: {len(results)} products matched"
+        elif site == "webscraper":
+            results = run_webscraper(keywords, pages_per_cat=req.pages)
+            msg = f"Webscraper: {len(results)} products matched"
+        elif site == "gsmarena":
+            if not req.url or not req.url.strip():
+                raise HTTPException(status_code=400, detail="GSMArena URL is required")
+            results = run_scrape("gsmarena", req.url.strip(), keywords, json_out="scraped.json")
+            msg = f"GSMArena: {len(results)} products matched"
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported site")
+            
+        return {"message": msg, "products": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

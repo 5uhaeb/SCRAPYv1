@@ -214,90 +214,6 @@
       .grid, .links { grid-template-columns: 1fr; }
       .container { padding: 24px 16px; }
     }
-
-    /* Results Grid */
-    .results-section { margin-top: 32px; display: none; }
-    .results-header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      margin-bottom: 20px;
-    }
-    .results-grid { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-      gap: 16px; 
-    }
-    .product-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      transition: all 0.3s ease;
-    }
-    .product-card:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 20px var(--glow);
-    }
-    .product-platform {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: var(--accent);
-      background: rgba(99, 102, 241, 0.1);
-      padding: 4px 8px;
-      border-radius: 4px;
-      width: fit-content;
-    }
-    .product-title {
-      font-size: 14px;
-      font-weight: 600;
-      line-height: 1.4;
-      color: var(--text-primary);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      min-height: 40px;
-    }
-    .product-price {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--green);
-    }
-    .product-link {
-      margin-top: auto;
-      text-decoration: none;
-      color: var(--text-secondary);
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .product-link:hover { color: var(--accent); }
-    
-    .btn-export {
-      padding: 8px 16px;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-    }
-    .btn-export:hover {
-      border-color: var(--accent);
-      color: var(--text-primary);
-    }
   </style>
 </head>
 <body>
@@ -312,13 +228,6 @@
 
     <!-- Scraper Card -->
     <div class="card">
-      <h2>🌐 API Backend URL</h2>
-      <div class="grid" style="margin-bottom: 20px;">
-        <div class="full">
-          <input id="apiUrl" type="url" placeholder="https://your-backend-app.koyeb.app" value="http://localhost:8000" onchange="checkApi()" />
-        </div>
-      </div>
-
       <h2>⚡ Run Scraper</h2>
 
       <div class="grid">
@@ -354,17 +263,17 @@
       </div>
 
       <div id="status" class="status">Waiting for input...</div>
-      <div class="note">Enter your Koyeb or external backend URL above.</div>
+      <div class="note">API runs as a serverless function on the same domain — no extra backend needed.</div>
     </div>
 
     <!-- Links Card -->
     <div class="card">
       <h2>🔗 Quick Links</h2>
       <div class="links">
-        <a class="link-btn" href="#" onclick="window.open(document.getElementById('apiUrl').value, '_blank'); return false;">
+        <a class="link-btn" href="/api" target="_blank">
           <span>📡</span> API Health
         </a>
-        <a class="link-btn" href="#" onclick="window.open(document.getElementById('apiUrl').value + '/docs', '_blank'); return false;">
+        <a class="link-btn" href="/api/docs" target="_blank">
           <span>📄</span> API Docs
         </a>
         <a class="link-btn" href="https://supabase.com/dashboard" target="_blank">
@@ -373,17 +282,6 @@
         <a class="link-btn" href="https://github.com/5uhaeb/SCRAPYv1" target="_blank">
           <span>🐙</span> GitHub Repo
         </a>
-      </div>
-    <!-- Results Section -->
-    <div id="resultsSection" class="results-section">
-      <div class="results-header">
-        <h2 style="font-size: 18px; margin: 0;">📦 Scraped Results</h2>
-        <button class="btn-export" onclick="exportToCSV()">
-          <span>📊</span> Export CSV
-        </button>
-      </div>
-      <div id="resultsGrid" class="results-grid">
-        <!-- Results will be rendered here -->
       </div>
     </div>
   </div>
@@ -399,12 +297,8 @@
     // ─── API Health Check ───
     async function checkApi() {
       const badge = document.getElementById("apiBadge");
-      const apiUrl = document.getElementById("apiUrl").value.replace(/\/$/, "");
-      badge.className = "badge checking";
-      badge.textContent = "⟳ Checking API...";
-      
       try {
-        const res = await fetch(`${apiUrl}/`, { signal: AbortSignal.timeout(8000) });
+        const res = await fetch("/api/health", { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           badge.className = "badge live";
           badge.textContent = "● API Connected";
@@ -444,8 +338,7 @@
       btn.innerHTML = '<span class="spinner"></span> Scraping...';
 
       try {
-        const baseUrl = document.getElementById("apiUrl").value.replace(/\/$/, "");
-        const res = await fetch(`${baseUrl}/scrape`, {
+        const res = await fetch("/api/scrape", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -459,62 +352,14 @@
         } else {
           status.textContent = "✓ " + (data.message || "Scraper finished successfully.");
           status.className = "status success";
-          if (data.products && data.products.length > 0) {
-            renderResults(data.products);
-          }
         }
       } catch (err) {
-        status.textContent = "✗ Request failed. Check your Backend URL and Supabase keys.";
+        status.textContent = "✗ Request failed. The function may have timed out — try fewer keywords.";
         status.className = "status error";
       } finally {
         btn.disabled = false;
         btn.innerHTML = "Run Scraper";
       }
-    }
-
-    // ─── Render Results Grid ───
-    function renderResults(products) {
-      const section = document.getElementById("resultsSection");
-      const grid = document.getElementById("resultsGrid");
-      section.style.display = "block";
-      grid.innerHTML = "";
-
-      products.forEach(p => {
-        const div = document.createElement("div");
-        div.className = "product-card shadow-sm";
-        div.innerHTML = `
-          <div class="product-platform">${p.platform}</div>
-          <div class="product-title" title="${p.title}">${p.title}</div>
-          <div class="product-price">${p.price ? "₹" + p.price.toLocaleString() : "Contact for Price"}</div>
-          <a href="${p.product_url}" target="_blank" class="product-link">
-            View on Site <span style="font-size: 10px;">↗</span>
-          </a>
-        `;
-        grid.appendChild(div);
-      });
-      section.scrollIntoView({ behavior: 'smooth' });
-    }
-
-    // ─── Export CSV ───
-    function exportToCSV() {
-      const grid = document.getElementById("resultsGrid");
-      const cards = grid.querySelectorAll(".product-card");
-      if (!cards.length) return;
-
-      let csv = "Platform,Title,Price,URL\n";
-      cards.forEach(card => {
-        const platform = card.querySelector(".product-platform").innerText;
-        const title = '"' + card.querySelector(".product-title").innerText.replace(/"/g, '""') + '"';
-        const price = card.querySelector(".product-price").innerText.replace(/[₹,]/g, "");
-        const url = card.querySelector(".product-link").href;
-        csv += `${platform},${title},${price},${url}\n`;
-      });
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const link = document.createElement("a");
-      link.href = window.URL.createObjectURL(blob);
-      link.download = `scraper_results_${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
     }
 
     // ─── Init ───
