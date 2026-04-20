@@ -136,21 +136,7 @@ class BaseScraper(ABC):
                 html = await self.fetch(url)
                 self.last_fetched_urls.append(url)
                 items = self.parse(html, keyword)
-                parsed_count = len(items)
-                if self.apply_keyword_filter:
-                    items = self.filter_by_keyword(items, keyword)
-                after_keyword_count = len(items)
-                if self.apply_price_filter:
-                    items = self.filter_by_price_sanity(items)
-                after_price_count = len(items)
-                logger.info(
-                    "%s %s: parsed=%s after_keyword=%s after_price=%s",
-                    self.name,
-                    keyword,
-                    parsed_count,
-                    after_keyword_count,
-                    after_price_count,
-                )
+                items = self.apply_relevance_filters(items, keyword)
                 for item in items:
                     item.source_platform = item.source_platform or self.name
                     item.product_hash = item.product_hash or product_hash_for(item.title, item.source_platform)
@@ -203,6 +189,24 @@ class BaseScraper(ABC):
         floor = median * 0.3
 
         return [item for item in items if not item.price or item.price >= floor]
+
+    def apply_relevance_filters(self, items: list[Item], keyword: str) -> list[Item]:
+        parsed_count = len(items)
+        if self.apply_keyword_filter:
+            items = self.filter_by_keyword(items, keyword)
+        after_keyword_count = len(items)
+        if self.apply_price_filter:
+            items = self.filter_by_price_sanity(items)
+        after_price_count = len(items)
+        logger.info(
+            "%s %s: parsed=%s after_keyword=%s after_price=%s",
+            self.name,
+            keyword,
+            parsed_count,
+            after_keyword_count,
+            after_price_count,
+        )
+        return items
 
     def _dedupe_items(self, items: list[Item]) -> list[Item]:
         deduped: dict[tuple[str, str], Item] = {}

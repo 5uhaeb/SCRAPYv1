@@ -116,6 +116,7 @@ class FlipkartScraper(BaseScraper):
                     html = await self.fetch(url)
                     self.last_fetched_urls.append(url)
                     items = self.parse(html, keyword)
+                    items = self.apply_relevance_filters(items, keyword)
                 except BlockedError as exc:
                     logger.warning("%s", exc)
                     continue
