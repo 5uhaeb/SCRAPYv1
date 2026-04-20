@@ -36,6 +36,7 @@ allowed_origins = [
         frontend_origin,
         "http://localhost:3000",
         "http://localhost:5173",
+        "https://scrap-yv1.vercel.app",
         "https://scrapyv1.vercel.app",
     ]
     if origin

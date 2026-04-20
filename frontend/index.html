@@ -265,7 +265,7 @@
       <div class="grid" style="margin-bottom: 20px;">
         <div>
           <label for="apiUrl">Backend</label>
-          <input id="apiUrl" type="url" value="http://localhost:8000" onchange="bootstrapApi()" />
+          <input id="apiUrl" type="url" value="https://scrapyv1.onrender.com" onchange="saveApiUrl(); bootstrapApi()" />
         </div>
         <div>
           <label for="apiKey">API Key</label>
@@ -388,6 +388,10 @@
 
     function saveApiKey() {
       sessionStorage.setItem("scrapyApiKey", document.getElementById("apiKey").value);
+    }
+
+    function saveApiUrl() {
+      localStorage.setItem("scrapyApiUrl", document.getElementById("apiUrl").value);
     }
 
     function openApi(path) {
@@ -597,6 +601,7 @@
     }
 
     document.getElementById("apiKey").value = sessionStorage.getItem("scrapyApiKey") || "";
+    document.getElementById("apiUrl").value = localStorage.getItem("scrapyApiUrl") || "https://scrapyv1.onrender.com";
     applyTheme(localStorage.getItem("theme") || "light");
     bootstrapApi();
   </script>
