@@ -53,6 +53,7 @@ class FlipkartScraper(BaseScraper):
         return f"{self.base_url}/search?q={quote_plus(keyword)}&page={page}"
 
     async def fetch(self, url: str) -> str:
+        from playwright.async_api import TimeoutError as PlaywrightTimeoutError
         from playwright.async_api import async_playwright
 
         async with async_playwright() as pw:
@@ -69,7 +70,21 @@ class FlipkartScraper(BaseScraper):
             )
             page = await context.new_page()
             try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                async def route_handler(route):
+                    if route.request.resource_type in {"font", "image", "media"}:
+                        await route.abort()
+                    else:
+                        await route.continue_()
+
+                await page.route("**/*", route_handler)
+                try:
+                    await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                except PlaywrightTimeoutError as exc:
+                    html = await page.content()
+                    if html and await self._products_rendered(page):
+                        return html
+                    path = self._save_debug_html(html)
+                    raise BlockedError(f"Flipkart navigation timed out for {url}; saved HTML to {path}") from exc
                 await asyncio.sleep(random.uniform(2, 5))
                 if not await self._products_rendered(page):
                     html = await page.content()
@@ -114,16 +129,23 @@ class FlipkartScraper(BaseScraper):
                 if not force and await dedup_cache.seen(url):
                     continue
 
-                try:
-                    html = await self.fetch(url)
-                    self.last_fetched_urls.append(url)
-                    items = self.parse(html, keyword)
-                except BlockedError as exc:
-                    logger.warning("%s", exc)
-                    continue
+                items: list[Item] = []
+                for attempt in range(2):
+                    try:
+                        html = await self.fetch(url)
+                        self.last_fetched_urls.append(url)
+                        items = self.parse(html, keyword)
+                        break
+                    except BlockedError as exc:
+                        logger.warning("%s", exc)
+                        if attempt == 0:
+                            await asyncio.sleep(random.uniform(3, 7))
+                        else:
+                            continue
 
                 keyword_items.extend(items)
-                fetched_urls.append(url)
+                if items:
+                    fetched_urls.append(url)
 
             keyword_items = self.apply_relevance_filters(keyword_items, keyword)
             for item in keyword_items:
