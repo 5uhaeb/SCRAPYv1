@@ -1,0 +1,2 @@
+# Test runner only; kept out of production requirements to avoid extra runtime deps.
+pytest
