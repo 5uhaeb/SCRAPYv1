@@ -17,6 +17,10 @@ from scrapers.playwright_fetcher import playwright_fetcher
 logger = logging.getLogger(__name__)
 
 
+class BlockedError(Exception):
+    """Raised when a site returns an interstitial, block page, or empty shell."""
+
+
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",

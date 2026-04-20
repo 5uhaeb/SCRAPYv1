@@ -1,47 +1,305 @@
+import asyncio
+import json
+import logging
+import random
+import re
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 from urllib.parse import quote_plus, urljoin
 
-from selectolax.parser import HTMLParser
+import extruct
+from selectolax.parser import HTMLParser, Node
 
-from scrapers.base import BaseScraper, Item
-from scrapers.jsonld_adapter import JsonLdScraper
+from scrapers.base import BaseScraper, BlockedError, Item, product_hash_for
+from scrapers.dedup import dedup_cache
+
+logger = logging.getLogger(__name__)
+
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+]
 
 
 class FlipkartScraper(BaseScraper):
     name = "flipkart"
     base_url = "https://www.flipkart.com"
-    requires_js = False
+    requires_js = True
+    max_products = 40
 
     def build_search_url(self, keyword: str, page: int = 1) -> str:
         return f"{self.base_url}/search?q={quote_plus(keyword)}&page={page}"
 
-    def parse(self, html: str, keyword: str) -> list[Item]:
-        jsonld_items = JsonLdScraper(self.name, self.base_url).parse(html, keyword)
-        if jsonld_items:
-            return jsonld_items
+    async def fetch(self, url: str) -> str:
+        from playwright.async_api import async_playwright
 
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+            )
+            context = await browser.new_context(
+                user_agent=random.choice(USER_AGENTS),
+                viewport={"width": 1920, "height": 1080},
+                locale="en-IN",
+                timezone_id="Asia/Kolkata",
+                extra_http_headers={"accept-language": "en-IN,en;q=0.9"},
+            )
+            page = await context.new_page()
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await asyncio.sleep(random.uniform(2, 5))
+                if not await self._products_rendered(page):
+                    html = await page.content()
+                    path = self._save_debug_html(html)
+                    raise BlockedError(f"Flipkart products did not render; saved HTML to {path}")
+                return await page.content()
+            finally:
+                await context.close()
+                await browser.close()
+
+    async def _products_rendered(self, page) -> bool:
+        selectors = [
+            "div[data-id]",
+            "a[href*='/p/']",
+            "script[type='application/ld+json']",
+        ]
+        for selector in selectors:
+            try:
+                await page.wait_for_selector(selector, timeout=5000)
+                return True
+            except Exception:
+                continue
+        return False
+
+    async def run(
+        self,
+        keywords: list[str],
+        pages: int = 2,
+        force: bool = False,
+        mark_immediately: bool = True,
+    ) -> list[Item]:
+        collected: list[Item] = []
+        self.last_fetched_urls = []
+        for keyword in keywords:
+            for page in range(1, pages + 1):
+                if page > 1:
+                    await asyncio.sleep(random.uniform(3, 7))
+
+                url = self.build_search_url(keyword, page)
+                if not force and await dedup_cache.seen(url):
+                    continue
+
+                try:
+                    html = await self.fetch(url)
+                    self.last_fetched_urls.append(url)
+                    items = self.parse(html, keyword)
+                except BlockedError as exc:
+                    logger.warning("%s", exc)
+                    continue
+
+                for item in items:
+                    item.product_hash = item.product_hash or product_hash_for(item.title, item.source_platform)
+                collected.extend(items)
+                if mark_immediately:
+                    await dedup_cache.mark_seen(url, ttl=900)
+
+        return self._dedupe_items(collected)
+
+    def parse(self, html: str, keyword: str) -> list[Item]:
+        for parser in (self.parse_jsonld, self.parse_structural):
+            items = parser(html, keyword)
+            if items:
+                return items[: self.max_products]
+
+        path = self._save_debug_html(html)
+        raise BlockedError(f"Flipkart parse returned no products; saved HTML to {path}")
+
+    def parse_jsonld(self, html: str, keyword: str) -> list[Item]:
+        data = extruct.extract(
+            html,
+            base_url=self.base_url,
+            syntaxes=["json-ld"],
+            uniform=True,
+        )
+        products: list[dict[str, Any]] = []
+        for entry in data.get("json-ld", []):
+            for node in self._flatten(entry):
+                if self._type_is(node, "ItemList"):
+                    products.extend(self._products_from_item_list(node))
+                elif self._type_is(node, "Product"):
+                    products.append(node)
+
+        items = []
+        seen = set()
+        for product in products:
+            item = self._item_from_product(product, keyword)
+            if not item or item.product_url in seen:
+                continue
+            seen.add(item.product_url)
+            items.append(item)
+            if len(items) >= self.max_products:
+                break
+        return items
+
+    def parse_structural(self, html: str, keyword: str) -> list[Item]:
         tree = HTMLParser(html)
         items: list[Item] = []
-        for card in tree.css("div[data-id], div._1AtVbE, div.slAVV4"):
-            title_el = card.css_first("div._4rR01T, a.s1Q9rs, a.IRpwTa, a.wjcEIp, div.KzDlHZ")
-            link_el = card.css_first("a[href]")
-            price_el = card.css_first("div._30jeq3, div.Nx9bqj, div._25b18c")
-            if not title_el or not link_el:
+        seen = set()
+        for anchor in tree.css("a[href*='/p/']"):
+            href = anchor.attributes.get("href")
+            if not href:
                 continue
-            href = link_el.attributes.get("href")
-            title = " ".join(title_el.text(separator=" ").split())
-            if not href or not title:
+            product_url = urljoin(self.base_url, href)
+            if product_url in seen:
                 continue
-            img = card.css_first("img")
-            image = img.attributes.get("src") if img else None
+
+            container = self._nearest_product_container(anchor)
+            title = self._title_from_anchor(anchor)
+            price = self._price_near(anchor, container)
+            if not title or len(title) <= 10 or price is None:
+                continue
+
+            image = self._image_near(anchor, container)
             items.append(
                 Item(
                     title=title,
-                    price=self.normalize_price(price_el.text() if price_el else None),
-                    product_url=urljoin(self.base_url, href),
-                    image_url=image,
+                    price=price,
+                    product_url=product_url,
+                    image_url=urljoin(self.base_url, image) if image else None,
                     source_platform=self.name,
                     keyword=keyword,
-                    raw={"source": "css"},
+                    raw={"source": "structural_css"},
                 )
             )
+            seen.add(product_url)
+            if len(items) >= self.max_products:
+                break
         return items
+
+    def normalize_price(self, raw: str | float | int | None) -> float | None:
+        if raw is None:
+            return None
+        if isinstance(raw, (int, float)):
+            return float(raw)
+        match = re.search(r"(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d+)?)", str(raw), flags=re.IGNORECASE)
+        return super().normalize_price(match.group(1)) if match else None
+
+    def _item_from_product(self, product: dict[str, Any], keyword: str) -> Item | None:
+        title = product.get("name") or product.get("title")
+        offers = product.get("offers") or {}
+        if isinstance(offers, list):
+            offers = offers[0] if offers else {}
+        price = product.get("price") or offers.get("price") or offers.get("lowPrice")
+        product_url = product.get("url") or offers.get("url")
+        if not title or not product_url:
+            return None
+
+        image = product.get("image")
+        if isinstance(image, list):
+            image = image[0] if image else None
+        if isinstance(image, dict):
+            image = image.get("url") or image.get("contentUrl")
+
+        return Item(
+            title=str(title).strip(),
+            price=self.normalize_price(price),
+            currency=str(offers.get("priceCurrency") or product.get("priceCurrency") or "INR").upper(),
+            product_url=urljoin(self.base_url, str(product_url)),
+            image_url=urljoin(self.base_url, str(image)) if image else None,
+            source_platform=self.name,
+            keyword=keyword,
+            raw={"source": "jsonld", "product": product},
+        )
+
+    def _products_from_item_list(self, item_list: dict[str, Any]) -> list[dict[str, Any]]:
+        products = []
+        for entry in item_list.get("itemListElement") or []:
+            for node in self._flatten(entry):
+                if self._type_is(node, "Product"):
+                    products.append(node)
+                elif isinstance(node.get("item"), dict) and self._type_is(node["item"], "Product"):
+                    products.append(node["item"])
+        return products
+
+    def _flatten(self, value: Any) -> list[dict[str, Any]]:
+        out = []
+        if isinstance(value, list):
+            for item in value:
+                out.extend(self._flatten(item))
+        elif isinstance(value, dict):
+            out.append(value)
+            if value.get("@graph"):
+                out.extend(self._flatten(value["@graph"]))
+            if value.get("item"):
+                out.extend(self._flatten(value["item"]))
+            if value.get("itemListElement"):
+                out.extend(self._flatten(value["itemListElement"]))
+        return out
+
+    def _type_is(self, node: dict[str, Any], expected: str) -> bool:
+        value = node.get("@type") or node.get("type")
+        if isinstance(value, list):
+            return any(str(item).lower() == expected.lower() for item in value)
+        return str(value).lower() == expected.lower()
+
+    def _nearest_product_container(self, node: Node) -> Node:
+        current = node
+        for _ in range(6):
+            if current.parent is None:
+                break
+            current = current.parent
+            text = current.text(separator=" ")
+            if "₹" in text or current.css_first("img"):
+                return current
+        return node
+
+    def _title_from_anchor(self, anchor: Node) -> str:
+        text = self._clean_text(anchor.text(separator=" "))
+        if len(text) > 10:
+            return text
+        for node in anchor.css("*"):
+            text = self._clean_text(node.text(separator=" "))
+            if len(text) > 10:
+                return text
+        return ""
+
+    def _price_near(self, anchor: Node, container: Node) -> float | None:
+        for node in [anchor, container]:
+            price = self._first_price(node.text(separator=" "))
+            if price is not None:
+                return price
+        current = container
+        for _ in range(3):
+            if current.parent is None:
+                break
+            current = current.parent
+            price = self._first_price(current.text(separator=" "))
+            if price is not None:
+                return price
+        return None
+
+    def _first_price(self, text: str) -> float | None:
+        match = re.search(r"₹\s*([\d,]+(?:\.\d+)?)", text or "")
+        return self.normalize_price(match.group(1)) if match else None
+
+    def _image_near(self, anchor: Node, container: Node) -> str | None:
+        for node in [anchor, container]:
+            img = node.css_first("img")
+            if img:
+                return img.attributes.get("src") or img.attributes.get("data-src")
+        return None
+
+    def _clean_text(self, value: str) -> str:
+        return " ".join((value or "").split()).strip()
+
+    def _save_debug_html(self, html: str) -> str:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        path = Path(tempfile.gettempdir()) / f"blocked_{self.name}_{timestamp}.html"
+        path.write_text(html or "", encoding="utf-8")
+        return str(path)
