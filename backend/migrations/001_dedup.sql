@@ -4,6 +4,7 @@ alter table if exists products
   add column if not exists title text,
   add column if not exists price numeric,
   add column if not exists currency text default 'INR',
+  add column if not exists image_url text,
   add column if not exists keyword text,
   add column if not exists scraped_at timestamptz default now(),
   add column if not exists raw jsonb,
