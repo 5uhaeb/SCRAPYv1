@@ -4,3 +4,10 @@ python-dotenv==1.0.1
 requests
 beautifulsoup4
 supabase
+httpx[http2]
+selectolax
+extruct
+tenacity
+upstash-redis
+rapidfuzz
+pydantic>=2
