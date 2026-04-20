@@ -475,6 +475,8 @@ textarea {
 .status {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   min-height: 46px;
   margin-top: 16px;
   padding: 12px 14px;
@@ -484,6 +486,36 @@ textarea {
   border-radius: var(--r-md);
   box-shadow: var(--shadow-sm);
   font-size: 14px;
+}
+
+.status-message {
+  min-width: 0;
+}
+
+.status-loader {
+  display: none;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: var(--outline-thin) solid var(--outline);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  position: relative;
+}
+
+.status-loader::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  border: 3px solid color-mix(in srgb, var(--blue) 24%, transparent);
+  border-top-color: var(--blue);
+  animation: spin 0.75s linear infinite;
+}
+
+.status.running .status-loader {
+  display: inline-block;
 }
 
 .status.success {

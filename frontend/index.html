@@ -309,7 +309,10 @@
         </div>
       </div>
 
-      <div id="status" class="status">Waiting for input...</div>
+      <div id="status" class="status">
+        <span class="status-message">Waiting for input...</span>
+        <span class="status-loader" aria-hidden="true"></span>
+      </div>
       <div class="note">Protected deployments require the same x-api-key configured on Render.</div>
     </div>
 
@@ -460,7 +463,7 @@
     async function startJob(path, payload) {
       if (!payload.keywords.length) return setStatus("Please enter at least one keyword.", "error");
       setBusy(true);
-      setStatus('<span class="spinner"></span>&nbsp; Starting scrape job...', "running", true);
+      setStatus("Starting scrape job...", "running");
 
       try {
         const res = await fetch(`${apiBase()}${path}`, {
@@ -484,7 +487,8 @@
         const res = await fetch(`${apiBase()}/v2/scrape/${jobId}`);
         const job = await res.json();
         const count = (job.results || []).length;
-        setStatus(`Job ${job.status}. Results: ${count}. Saved: ${job.saved_count || 0}. Alerts: ${job.alert_count || 0}.`, job.status === "failed" ? "error" : "running");
+        const statusType = job.status === "failed" ? "error" : job.status === "complete" ? "success" : "running";
+        setStatus(`Job ${job.status}. Results: ${count}. Saved: ${job.saved_count || 0}. Alerts: ${job.alert_count || 0}.`, statusType);
         if (job.status === "complete" || job.status === "failed") {
           latestProducts = job.results || [];
           renderResults(latestProducts);
@@ -574,10 +578,14 @@
       ctx.stroke();
     }
 
-    function setStatus(message, type, html = false) {
+    function setStatus(message, type) {
       const status = document.getElementById("status");
-      if (html) status.innerHTML = message;
-      else status.textContent = message;
+      let messageEl = status.querySelector(".status-message");
+      if (!messageEl) {
+        status.innerHTML = '<span class="status-message"></span><span class="status-loader" aria-hidden="true"></span>';
+        messageEl = status.querySelector(".status-message");
+      }
+      messageEl.textContent = message;
       status.className = `status ${type}`;
     }
 

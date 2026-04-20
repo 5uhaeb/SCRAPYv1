@@ -87,7 +87,8 @@ class Job(BaseModel):
 
 
 JOBS: dict[str, Job] = {}
-SCRAPER_TIMEOUT_SECONDS = int(os.getenv("SCRAPER_TIMEOUT_SECONDS", "120"))
+# Long enough for slow Render Playwright runs; set to 0 to disable the safety cutoff.
+SCRAPER_TIMEOUT_SECONDS = int(os.getenv("SCRAPER_TIMEOUT_SECONDS", "420"))
 
 
 @app.on_event("shutdown")
@@ -267,7 +268,10 @@ async def _run_job(job_id: str):
         for site, result in zip(job.sites, results_by_site):
             if isinstance(result, Exception):
                 if isinstance(result, TimeoutError):
-                    errors.append(f"{site}: timed out after {SCRAPER_TIMEOUT_SECONDS}s")
+                    errors.append(
+                        f"{site}: timed out after {SCRAPER_TIMEOUT_SECONDS}s; "
+                        "increase SCRAPER_TIMEOUT_SECONDS or set it to 0 for no cutoff"
+                    )
                 else:
                     errors.append(f"{site}: {result}")
             else:
@@ -297,12 +301,12 @@ async def _run_job(job_id: str):
 
 
 async def _run_scraper_with_timeout(scraper, job: Job):
-    return await asyncio.wait_for(
-        scraper.run(
-            job.keywords,
-            pages=job.pages,
-            force=job.force,
-            mark_immediately=False,
-        ),
-        timeout=SCRAPER_TIMEOUT_SECONDS,
+    run_coro = scraper.run(
+        job.keywords,
+        pages=job.pages,
+        force=job.force,
+        mark_immediately=False,
     )
+    if SCRAPER_TIMEOUT_SECONDS <= 0:
+        return await run_coro
+    return await asyncio.wait_for(run_coro, timeout=SCRAPER_TIMEOUT_SECONDS)
