@@ -30,6 +30,9 @@ set currency = coalesce(currency, 'INR'),
       md5(lower(regexp_replace(coalesce(title, ''), '[^a-zA-Z0-9]+', ' ', 'g')) || coalesce(source_platform, ''))
     );
 
+alter table if exists products
+  alter column price type numeric using price::numeric;
+
 with ranked as (
   select
     ctid,

@@ -23,6 +23,8 @@ def _serialize_row(product) -> dict:
         row["source_platform"] = row.pop("platform")
     if isinstance(row.get("scraped_at"), datetime):
         row["scraped_at"] = row["scraped_at"].isoformat()
+    if isinstance(row.get("price"), float) and row["price"].is_integer():
+        row["price"] = int(row["price"])
     return row
 
 
