@@ -284,7 +284,7 @@
 
         <div>
           <label for="pages">Pages</label>
-          <input id="pages" type="number" min="1" max="10" value="2" />
+          <input id="pages" type="number" min="1" max="10" value="1" />
         </div>
 
         <div>
@@ -426,7 +426,7 @@
         const scrapers = data.scrapers || [];
         target.innerHTML = scrapers.map(site => `
           <label>
-            <input type="checkbox" name="site" value="${site}" ${site === "vijaysales" ? "checked" : ""} />
+            <input type="checkbox" name="site" value="${site}" ${site === "flipkart" ? "checked" : ""} />
             ${site.replaceAll("_", " ")}
           </label>
         `).join("");
@@ -454,7 +454,7 @@
     }
 
     function pageCount() {
-      return parseInt(document.getElementById("pages").value || "2", 10);
+      return parseInt(document.getElementById("pages").value || "1", 10);
     }
 
     async function startJob(path, payload) {

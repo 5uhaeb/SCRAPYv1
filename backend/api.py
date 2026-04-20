@@ -87,6 +87,7 @@ class Job(BaseModel):
 
 
 JOBS: dict[str, Job] = {}
+SCRAPER_TIMEOUT_SECONDS = int(os.getenv("SCRAPER_TIMEOUT_SECONDS", "120"))
 
 
 @app.on_event("shutdown")
@@ -257,15 +258,7 @@ async def _run_job(job_id: str):
     try:
         scrapers = [get_scraper(site) for site in job.sites]
         results_by_site = await asyncio.gather(
-            *(
-                scraper.run(
-                    job.keywords,
-                    pages=job.pages,
-                    force=job.force,
-                    mark_immediately=False,
-                )
-                for scraper in scrapers
-            ),
+            *(_run_scraper_with_timeout(scraper, job) for scraper in scrapers),
             return_exceptions=True,
         )
 
@@ -273,7 +266,10 @@ async def _run_job(job_id: str):
         errors = []
         for site, result in zip(job.sites, results_by_site):
             if isinstance(result, Exception):
-                errors.append(f"{site}: {result}")
+                if isinstance(result, TimeoutError):
+                    errors.append(f"{site}: timed out after {SCRAPER_TIMEOUT_SECONDS}s")
+                else:
+                    errors.append(f"{site}: {result}")
             else:
                 all_items.extend(result)
 
@@ -298,3 +294,15 @@ async def _run_job(job_id: str):
         job.error = str(exc)
     finally:
         job.updated_at = datetime.now(timezone.utc)
+
+
+async def _run_scraper_with_timeout(scraper, job: Job):
+    return await asyncio.wait_for(
+        scraper.run(
+            job.keywords,
+            pages=job.pages,
+            force=job.force,
+            mark_immediately=False,
+        ),
+        timeout=SCRAPER_TIMEOUT_SECONDS,
+    )
