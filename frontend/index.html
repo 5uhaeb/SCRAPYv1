@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Product Price Tracker — scrape and compare prices from VijaySales, GSMArena, and more. Powered by Supabase." />
-  <title>Product Price Tracker — SCRAPYv1</title>
+  <meta name="description" content="Product Price Tracker - scrape and compare prices across stores." />
+  <title>Product Price Tracker - SCRAPYv2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -33,9 +33,7 @@
       min-height: 100vh;
     }
 
-    .container { max-width: 720px; margin: 0 auto; padding: 40px 20px; }
-
-    /* Header */
+    .container { max-width: 1080px; margin: 0 auto; padding: 40px 20px; }
     .header { text-align: center; margin-bottom: 32px; }
 
     .header h1 {
@@ -59,14 +57,12 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: 12px;
-      transition: all 0.3s ease;
     }
 
     .badge.live { background: rgba(16, 185, 129, 0.15); color: #34d399; }
     .badge.offline { background: rgba(239, 68, 68, 0.15); color: #f87171; }
     .badge.checking { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
 
-    /* Cards */
     .card {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -81,14 +77,7 @@
       box-shadow: 0 4px 24px var(--glow);
     }
 
-    .card h2 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: var(--text-primary);
-    }
-
-    /* Form */
+    .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .full { grid-column: 1 / -1; }
 
@@ -102,7 +91,7 @@
       letter-spacing: 0.5px;
     }
 
-    input, select, textarea {
+    input, textarea {
       width: 100%;
       padding: 10px 14px;
       border-radius: 8px;
@@ -111,19 +100,40 @@
       color: var(--text-primary);
       font-size: 14px;
       font-family: inherit;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
       outline: none;
     }
 
-    input:focus, select:focus, textarea:focus {
+    input:focus, textarea:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--glow);
     }
 
     textarea { min-height: 70px; resize: vertical; }
-    select option { background: var(--bg-card); }
 
-    /* Buttons */
+    .checkbox-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-input);
+    }
+
+    .checkbox-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--text-primary);
+    }
+
+    .checkbox-list input { width: auto; }
+
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
     .btn {
       width: 100%;
       padding: 12px;
@@ -133,7 +143,6 @@
       font-size: 14px;
       font-weight: 600;
       font-family: inherit;
-      transition: all 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -141,17 +150,10 @@
     }
 
     .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .btn-primary:hover {
-      background: var(--accent-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-    }
-
-    .btn-primary:active { transform: translateY(0); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    /* Status */
     .status {
       margin-top: 14px;
       padding: 10px 14px;
@@ -168,15 +170,12 @@
     .status.success { border-color: rgba(16, 185, 129, 0.4); color: #34d399; }
     .status.error { border-color: rgba(239, 68, 68, 0.4); color: #f87171; }
     .status.running { border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc; }
+    .note { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
 
-    /* Links */
-    .links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
+    .links { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .link-btn {
       display: flex;
-      align-items: center;
       justify-content: center;
-      gap: 8px;
       text-decoration: none;
       color: var(--text-primary);
       background: var(--bg-input);
@@ -185,21 +184,9 @@
       border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
-      transition: all 0.2s ease;
     }
-
-    .link-btn:hover {
-      border-color: var(--accent);
-      background: rgba(99, 102, 241, 0.08);
-      transform: translateY(-1px);
-    }
-
-    .note { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
-
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
     @keyframes spin { to { transform: rotate(360deg); } }
-
     .spinner {
       display: inline-block;
       width: 14px;
@@ -210,125 +197,80 @@
       animation: spin 0.7s linear infinite;
     }
 
-    @media (max-width: 600px) {
-      .grid, .links { grid-template-columns: 1fr; }
-      .container { padding: 24px 16px; }
+    .results-section { margin-top: 32px; display: none; }
+    .cheapest-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
     }
 
-    /* Results Grid */
-    .results-section { margin-top: 32px; display: none; }
-    .results-header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      margin-bottom: 20px;
-    }
-    .results-grid { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-      gap: 16px; 
-    }
-    .product-card {
-      background: var(--bg-card);
+    .deal-card {
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      transition: all 0.3s ease;
-    }
-    .product-card:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 20px var(--glow);
-    }
-    .product-platform {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: var(--accent);
-      background: rgba(99, 102, 241, 0.1);
-      padding: 4px 8px;
-      border-radius: 4px;
-      width: fit-content;
-    }
-    .product-title {
-      font-size: 14px;
-      font-weight: 600;
-      line-height: 1.4;
-      color: var(--text-primary);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      min-height: 40px;
-    }
-    .product-price {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--green);
-    }
-    .product-link {
-      margin-top: auto;
-      text-decoration: none;
-      color: var(--text-secondary);
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .product-link:hover { color: var(--accent); }
-    
-    .btn-export {
-      padding: 8px 16px;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
       border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
+      background: var(--bg-input);
+      padding: 14px;
     }
-    .btn-export:hover {
-      border-color: var(--accent);
-      color: var(--text-primary);
+
+    .deal-title { font-size: 13px; color: var(--text-primary); line-height: 1.4; margin-bottom: 8px; }
+    .deal-price { color: var(--green); font-weight: 700; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    th { color: var(--text-secondary); background: var(--bg-input); font-size: 11px; text-transform: uppercase; }
+    td a { color: #a5b4fc; text-decoration: none; }
+    .muted { color: var(--text-muted); }
+    .sparkline { width: 110px; height: 32px; display: block; }
+
+    @media (max-width: 720px) {
+      .grid, .actions, .links { grid-template-columns: 1fr; }
+      .container { padding: 24px 16px; }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-
-    <!-- Header -->
     <div class="header">
-      <span class="badge checking" id="apiBadge">⟳ Checking API...</span>
+      <span class="badge checking" id="apiBadge">Checking API...</span>
       <h1>Product Price Tracker</h1>
-      <p>Scrape prices from VijaySales, GSMArena &amp; more — stored in Supabase</p>
+      <p>Scrape, compare, and track prices across stores.</p>
     </div>
 
-    <!-- Scraper Card -->
     <div class="card">
-      <h2>🌐 API Backend URL</h2>
+      <h2>API Backend URL</h2>
       <div class="grid" style="margin-bottom: 20px;">
-        <div class="full">
-          <input id="apiUrl" type="url" placeholder="https://your-backend-app.koyeb.app" value="http://localhost:8000" onchange="checkApi()" />
+        <div>
+          <label for="apiUrl">Backend</label>
+          <input id="apiUrl" type="url" value="http://localhost:8000" onchange="bootstrapApi()" />
+        </div>
+        <div>
+          <label for="apiKey">API Key</label>
+          <input id="apiKey" type="password" placeholder="Required if backend enforces x-api-key" onchange="saveApiKey()" />
         </div>
       </div>
 
-      <h2>⚡ Run Scraper</h2>
-
+      <h2>Run Scraper</h2>
       <div class="grid">
-        <div>
-          <label for="site">Site</label>
-          <select id="site" onchange="toggleGsmaUrl()">
-            <option value="vijaysales">VijaySales</option>
-            <option value="webscraper">Webscraper Test Site</option>
-            <option value="gsmarena">GSMArena</option>
-          </select>
+        <div class="full">
+          <label>Sites</label>
+          <div id="siteList" class="checkbox-list">
+            <span class="muted">Loading scrapers...</span>
+          </div>
         </div>
 
         <div>
@@ -336,190 +278,286 @@
           <input id="pages" type="number" min="1" max="10" value="2" />
         </div>
 
-        <div class="full">
-          <label for="keywords">Keywords (comma separated)</label>
-          <textarea id="keywords" placeholder="iphone, samsung s24, oneplus"></textarea>
-        </div>
-
-        <div class="full" id="gsmarenaUrlWrap" style="display:none;">
-          <label for="gsmarenaUrl">GSMArena URL</label>
-          <input id="gsmarenaUrl" type="text" value="https://www.gsmarena.com/samsung-phones-9.php" />
+        <div>
+          <label for="pollEvery">Poll Seconds</label>
+          <input id="pollEvery" type="number" min="2" max="30" value="3" />
         </div>
 
         <div class="full">
-          <button class="btn btn-primary" id="scrapeBtn" onclick="runScraper()">
-            Run Scraper
-          </button>
+          <label for="keywords">Keywords</label>
+          <textarea id="keywords" placeholder="iphone 15, samsung s24, macbook air m3"></textarea>
+        </div>
+
+        <div class="full actions">
+          <button class="btn btn-primary" id="scrapeBtn" onclick="runSelectedScrapers()">Run Selected</button>
+          <button class="btn btn-secondary" id="scrapeAllBtn" onclick="runAllScrapers()">Scrape All</button>
         </div>
       </div>
 
       <div id="status" class="status">Waiting for input...</div>
-      <div class="note">Enter your Koyeb or external backend URL above.</div>
+      <div class="note">Protected deployments require the same x-api-key configured on Render.</div>
     </div>
 
-    <!-- Links Card -->
     <div class="card">
-      <h2>🔗 Quick Links</h2>
+      <h2>Quick Links</h2>
       <div class="links">
-        <a class="link-btn" href="#" onclick="window.open(document.getElementById('apiUrl').value, '_blank'); return false;">
-          <span>📡</span> API Health
-        </a>
-        <a class="link-btn" href="#" onclick="window.open(document.getElementById('apiUrl').value + '/docs', '_blank'); return false;">
-          <span>📄</span> API Docs
-        </a>
-        <a class="link-btn" href="https://supabase.com/dashboard" target="_blank">
-          <span>🗄️</span> Supabase Console
-        </a>
-        <a class="link-btn" href="https://github.com/5uhaeb/SCRAPYv1" target="_blank">
-          <span>🐙</span> GitHub Repo
-        </a>
+        <a class="link-btn" href="#" onclick="openApi('/health'); return false;">API Health</a>
+        <a class="link-btn" href="#" onclick="openApi('/docs'); return false;">API Docs</a>
+        <a class="link-btn" href="https://supabase.com/dashboard" target="_blank">Supabase</a>
+        <a class="link-btn" href="https://github.com/5uhaeb/SCRAPYv1" target="_blank">GitHub</a>
       </div>
-    <!-- Results Section -->
+    </div>
+
     <div id="resultsSection" class="results-section">
-      <div class="results-header">
-        <h2 style="font-size: 18px; margin: 0;">📦 Scraped Results</h2>
-        <button class="btn-export" onclick="exportToCSV()">
-          <span>📊</span> Export CSV
-        </button>
+      <div class="card">
+        <h2>Cheapest Across Sites</h2>
+        <div id="cheapestGrid" class="cheapest-grid"></div>
       </div>
-      <div id="resultsGrid" class="results-grid">
-        <!-- Results will be rendered here -->
+
+      <div class="card">
+        <h2>Scraped Results</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Product</th>
+                <th>Price</th>
+                <th>History</th>
+                <th>Link</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // ─── GSMArena URL toggle ───
-    function toggleGsmaUrl() {
-      const site = document.getElementById("site").value;
-      document.getElementById("gsmarenaUrlWrap").style.display =
-        site === "gsmarena" ? "block" : "none";
+    let latestProducts = [];
+
+    function apiBase() {
+      return document.getElementById("apiUrl").value.replace(/\/$/, "");
     }
 
-    // ─── API Health Check ───
+    function authHeaders() {
+      const key = document.getElementById("apiKey").value.trim();
+      return key ? { "x-api-key": key } : {};
+    }
+
+    function saveApiKey() {
+      sessionStorage.setItem("scrapyApiKey", document.getElementById("apiKey").value);
+    }
+
+    function openApi(path) {
+      window.open(apiBase() + path, "_blank");
+    }
+
+    async function bootstrapApi() {
+      await checkApi();
+      await loadScrapers();
+    }
+
     async function checkApi() {
       const badge = document.getElementById("apiBadge");
-      const apiUrl = document.getElementById("apiUrl").value.replace(/\/$/, "");
       badge.className = "badge checking";
-      badge.textContent = "⟳ Checking API...";
-      
+      badge.textContent = "Checking API...";
       try {
-        const res = await fetch(`${apiUrl}/`, { signal: AbortSignal.timeout(8000) });
-        if (res.ok) {
-          badge.className = "badge live";
-          badge.textContent = "● API Connected";
-        } else {
-          throw new Error("Not OK");
-        }
+        const res = await fetch(`${apiBase()}/health`, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) throw new Error("health failed");
+        badge.className = "badge live";
+        badge.textContent = "API Connected";
       } catch {
         badge.className = "badge offline";
-        badge.textContent = "○ API Offline";
+        badge.textContent = "API Offline";
       }
     }
 
-    // ─── Run Scraper ───
-    async function runScraper() {
-      const site = document.getElementById("site").value;
-      const keywordsRaw = document.getElementById("keywords").value;
-      const pages = parseInt(document.getElementById("pages").value || "2", 10);
-      const gsmarenaUrl = document.getElementById("gsmarenaUrl").value.trim();
-      const status = document.getElementById("status");
-      const btn = document.getElementById("scrapeBtn");
-
-      const keywords = keywordsRaw.split(",").map(k => k.trim()).filter(Boolean);
-
-      if (!keywords.length) {
-        status.textContent = "Please enter at least one keyword.";
-        status.className = "status error";
-        return;
+    async function loadScrapers() {
+      const target = document.getElementById("siteList");
+      try {
+        const res = await fetch(`${apiBase()}/v2/scrapers`);
+        const data = await res.json();
+        const scrapers = data.scrapers || [];
+        target.innerHTML = scrapers.map(site => `
+          <label>
+            <input type="checkbox" name="site" value="${site}" ${site === "vijaysales" ? "checked" : ""} />
+            ${site.replaceAll("_", " ")}
+          </label>
+        `).join("");
+      } catch {
+        target.innerHTML = '<span class="muted">Could not load scrapers.</span>';
       }
+    }
 
-      const payload = { site, keywords, pages };
-      if (site === "gsmarena") payload.url = gsmarenaUrl;
+    function selectedSites() {
+      return Array.from(document.querySelectorAll("input[name='site']:checked")).map(el => el.value);
+    }
 
-      // Running state
-      status.innerHTML = '<span class="spinner"></span>&nbsp; Scraping — this may take a few seconds...';
-      status.className = "status running";
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Scraping...';
+    function keywords() {
+      return document.getElementById("keywords").value.split(",").map(k => k.trim()).filter(Boolean);
+    }
+
+    async function runSelectedScrapers() {
+      const sites = selectedSites();
+      if (!sites.length) return setStatus("Select at least one site.", "error");
+      await startJob("/v2/scrape", { sites, keywords: keywords(), pages: pageCount() });
+    }
+
+    async function runAllScrapers() {
+      await startJob("/v2/scrape/all", { keywords: keywords(), pages: pageCount() });
+    }
+
+    function pageCount() {
+      return parseInt(document.getElementById("pages").value || "2", 10);
+    }
+
+    async function startJob(path, payload) {
+      if (!payload.keywords.length) return setStatus("Please enter at least one keyword.", "error");
+      setBusy(true);
+      setStatus('<span class="spinner"></span>&nbsp; Starting scrape job...', "running", true);
 
       try {
-        const baseUrl = document.getElementById("apiUrl").value.replace(/\/$/, "");
-        const res = await fetch(`${baseUrl}/scrape`, {
+        const res = await fetch(`${apiBase()}${path}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeaders() },
           body: JSON.stringify(payload),
         });
-
         const data = await res.json();
-
-        if (!res.ok) {
-          status.textContent = "✗ " + (data.detail || data.error || "Scraper failed.");
-          status.className = "status error";
-        } else {
-          status.textContent = "✓ " + (data.message || "Scraper finished successfully.");
-          status.className = "status success";
-          if (data.products && data.products.length > 0) {
-            renderResults(data.products);
-          }
-        }
+        if (!res.ok) throw new Error(data.detail || "Scrape request failed.");
+        await pollJob(data.job_id, payload.keywords[0]);
       } catch (err) {
-        status.textContent = "✗ Request failed. Check your Backend URL and Supabase keys.";
-        status.className = "status error";
+        setStatus(err.message || "Request failed.", "error");
       } finally {
-        btn.disabled = false;
-        btn.innerHTML = "Run Scraper";
+        setBusy(false);
       }
     }
 
-    // ─── Render Results Grid ───
+    async function pollJob(jobId, firstKeyword) {
+      const intervalMs = parseInt(document.getElementById("pollEvery").value || "3", 10) * 1000;
+      for (let attempt = 1; attempt <= 120; attempt++) {
+        const res = await fetch(`${apiBase()}/v2/scrape/${jobId}`);
+        const job = await res.json();
+        const count = (job.results || []).length;
+        setStatus(`Job ${job.status}. Results: ${count}. Saved: ${job.saved_count || 0}. Alerts: ${job.alert_count || 0}.`, job.status === "failed" ? "error" : "running");
+        if (job.status === "complete" || job.status === "failed") {
+          latestProducts = job.results || [];
+          renderResults(latestProducts);
+          await renderCheapest(firstKeyword);
+          setStatus(job.error || `Done. Saved ${job.saved_count || 0} rows.`, job.status === "failed" ? "error" : "success");
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+      }
+      setStatus("Job is still running. Check the API status URL later.", "running");
+    }
+
+    async function renderCheapest(keyword) {
+      const grid = document.getElementById("cheapestGrid");
+      grid.innerHTML = "";
+      if (!keyword) return;
+      try {
+        const res = await fetch(`${apiBase()}/v2/products/cheapest?keyword=${encodeURIComponent(keyword)}&limit=6`);
+        const data = await res.json();
+        const products = data.products || [];
+        grid.innerHTML = products.length ? products.map(p => `
+          <div class="deal-card">
+            <div class="deal-title">${escapeHtml(p.title || "Untitled")}</div>
+            <div class="deal-price">${formatPrice(p.price)}</div>
+            <div class="muted">${p.source_platform || p.platform || ""}</div>
+          </div>
+        `).join("") : '<span class="muted">No cheapest data yet.</span>';
+      } catch {
+        grid.innerHTML = '<span class="muted">Could not load cheapest products.</span>';
+      }
+    }
+
     function renderResults(products) {
       const section = document.getElementById("resultsSection");
-      const grid = document.getElementById("resultsGrid");
+      const body = document.getElementById("resultsBody");
       section.style.display = "block";
-      grid.innerHTML = "";
+      body.innerHTML = "";
 
-      products.forEach(p => {
-        const div = document.createElement("div");
-        div.className = "product-card shadow-sm";
-        div.innerHTML = `
-          <div class="product-platform">${p.platform}</div>
-          <div class="product-title" title="${p.title}">${p.title}</div>
-          <div class="product-price">${p.price ? "₹" + p.price.toLocaleString() : "Contact for Price"}</div>
-          <a href="${p.product_url}" target="_blank" class="product-link">
-            View on Site <span style="font-size: 10px;">↗</span>
-          </a>
+      products.forEach((p, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(p.source_platform || p.platform || "")}</td>
+          <td>${escapeHtml(p.title || "")}</td>
+          <td>${formatPrice(p.price)}</td>
+          <td><canvas class="sparkline" id="spark-${index}" width="110" height="32"></canvas></td>
+          <td><a href="${p.product_url}" target="_blank">Open</a></td>
         `;
-        grid.appendChild(div);
+        body.appendChild(tr);
+        if (p.product_hash) loadSparkline(p.product_hash, `spark-${index}`);
       });
-      section.scrollIntoView({ behavior: 'smooth' });
+      section.scrollIntoView({ behavior: "smooth" });
     }
 
-    // ─── Export CSV ───
-    function exportToCSV() {
-      const grid = document.getElementById("resultsGrid");
-      const cards = grid.querySelectorAll(".product-card");
-      if (!cards.length) return;
-
-      let csv = "Platform,Title,Price,URL\n";
-      cards.forEach(card => {
-        const platform = card.querySelector(".product-platform").innerText;
-        const title = '"' + card.querySelector(".product-title").innerText.replace(/"/g, '""') + '"';
-        const price = card.querySelector(".product-price").innerText.replace(/[₹,]/g, "");
-        const url = card.querySelector(".product-link").href;
-        csv += `${platform},${title},${price},${url}\n`;
-      });
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const link = document.createElement("a");
-      link.href = window.URL.createObjectURL(blob);
-      link.download = `scraper_results_${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
+    async function loadSparkline(productHash, canvasId) {
+      try {
+        const res = await fetch(`${apiBase()}/v2/products/${encodeURIComponent(productHash)}/history`);
+        const data = await res.json();
+        const prices = (data.history || []).map(row => Number(row.price)).filter(Boolean).slice(-20);
+        drawSparkline(canvasId, prices);
+      } catch {
+        drawSparkline(canvasId, []);
+      }
     }
 
-    // ─── Init ───
-    toggleGsmaUrl();
-    checkApi();
+    function drawSparkline(canvasId, values) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#6366f1";
+      ctx.lineWidth = 2;
+      if (values.length < 2) {
+        ctx.fillStyle = "#64748b";
+        ctx.fillRect(8, 16, 94, 1);
+        return;
+      }
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const spread = max - min || 1;
+      ctx.beginPath();
+      values.forEach((value, index) => {
+        const x = (index / (values.length - 1)) * 104 + 3;
+        const y = 28 - ((value - min) / spread) * 24;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function setStatus(message, type, html = false) {
+      const status = document.getElementById("status");
+      if (html) status.innerHTML = message;
+      else status.textContent = message;
+      status.className = `status ${type}`;
+    }
+
+    function setBusy(isBusy) {
+      document.getElementById("scrapeBtn").disabled = isBusy;
+      document.getElementById("scrapeAllBtn").disabled = isBusy;
+    }
+
+    function formatPrice(price) {
+      return price ? "INR " + Number(price).toLocaleString("en-IN") : "No price";
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;",
+      }[char]));
+    }
+
+    document.getElementById("apiKey").value = sessionStorage.getItem("scrapyApiKey") || "";
+    bootstrapApi();
   </script>
 </body>
 </html>
