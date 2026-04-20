@@ -54,6 +54,7 @@ class ScrapeRequest(BaseModel):
     sites: list[str] = Field(default_factory=list)
     keywords: list[str]
     pages: int = Field(default=2, ge=1, le=10)
+    force: bool = False
 
 
 class LegacyScrapeRequest(BaseModel):
@@ -77,6 +78,7 @@ class Job(BaseModel):
     sites: list[str]
     keywords: list[str]
     pages: int
+    force: bool = False
     results: list[dict] = Field(default_factory=list)
     saved_count: int = 0
     alert_count: int = 0
@@ -141,12 +143,12 @@ async def scrape(req: ScrapeRequest, _: None = Depends(require_scrape_api_key)):
     sites = [site.strip().lower() for site in req.sites if site.strip()]
     if not sites:
         raise HTTPException(status_code=400, detail="At least one site is required")
-    return _start_job(sites, req.keywords, req.pages)
+    return _start_job(sites, req.keywords, req.pages, req.force)
 
 
 @app.post("/v2/scrape/all", status_code=status.HTTP_202_ACCEPTED)
 async def scrape_all(req: ScrapeRequest, _: None = Depends(require_scrape_api_key)):
-    return _start_job(list(SCRAPERS), req.keywords, req.pages)
+    return _start_job(list(SCRAPERS), req.keywords, req.pages, req.force)
 
 
 @app.get("/v2/scrape/{job_id}")
@@ -221,7 +223,7 @@ async def health():
     }
 
 
-def _start_job(sites: list[str], keywords: list[str], pages: int):
+def _start_job(sites: list[str], keywords: list[str], pages: int, force: bool = False):
     keywords = [keyword.strip() for keyword in keywords if keyword.strip()]
     if not keywords:
         raise HTTPException(status_code=400, detail="No keywords provided")
@@ -241,6 +243,7 @@ def _start_job(sites: list[str], keywords: list[str], pages: int):
         sites=normalized_sites,
         keywords=keywords,
         pages=pages,
+        force=force,
     )
     asyncio.create_task(_run_job(job_id))
     return {"job_id": job_id, "status_url": f"/v2/scrape/{job_id}"}
@@ -253,7 +256,15 @@ async def _run_job(job_id: str):
     try:
         scrapers = [get_scraper(site) for site in job.sites]
         results_by_site = await asyncio.gather(
-            *(scraper.run(job.keywords, pages=job.pages) for scraper in scrapers),
+            *(
+                scraper.run(
+                    job.keywords,
+                    pages=job.pages,
+                    force=job.force,
+                    mark_immediately=False,
+                )
+                for scraper in scrapers
+            ),
             return_exceptions=True,
         )
 
@@ -272,6 +283,10 @@ async def _run_job(job_id: str):
             errors.append(f"alerts: {exc}")
 
         saved = await asyncio.to_thread(upsert_products, all_items)
+        if saved > 0:
+            for scraper in scrapers:
+                for url in scraper.last_fetched_urls:
+                    await dedup_cache.mark_seen(url, ttl=900)
         job.results = [item.model_dump(mode="json") for item in all_items]
         job.saved_count = saved
         job.alert_count = len(alerts)

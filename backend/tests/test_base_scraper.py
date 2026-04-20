@@ -76,3 +76,25 @@ def test_run_uses_dedup_cache(monkeypatch):
     assert len(first) == 1
     assert second == []
     assert first[0].product_hash
+
+
+def test_run_force_bypasses_dedup_cache(monkeypatch):
+    scraper = DummyScraper()
+
+    async def fake_seen(url):
+        return True
+
+    async def fake_mark_seen(url, ttl=3600):
+        raise AssertionError("force should not mark skipped URLs in this test")
+
+    async def fake_fetch(url):
+        return "<html>ok</html>"
+
+    monkeypatch.setattr("scrapers.base.dedup_cache.seen", fake_seen)
+    monkeypatch.setattr("scrapers.base.dedup_cache.mark_seen", fake_mark_seen)
+    monkeypatch.setattr(scraper, "fetch", fake_fetch)
+
+    items = asyncio.run(scraper.run(["iphone"], pages=1, force=True, mark_immediately=False))
+
+    assert len(items) == 1
+    assert scraper.last_fetched_urls == ["https://example.com/search?q=iphone&page=1"]

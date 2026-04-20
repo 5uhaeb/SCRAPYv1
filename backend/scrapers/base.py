@@ -72,6 +72,7 @@ class BaseScraper(ABC):
             "Accept-Language": "en-IN,en;q=0.9",
             "Referer": "https://www.google.com/",
         }
+        self.last_fetched_urls: list[str] = []
 
     @retry(
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
@@ -111,21 +112,30 @@ class BaseScraper(ABC):
     def parse(self, html: str, keyword: str) -> list[Item]:
         raise NotImplementedError
 
-    async def run(self, keywords: list[str], pages: int = 2) -> list[Item]:
+    async def run(
+        self,
+        keywords: list[str],
+        pages: int = 2,
+        force: bool = False,
+        mark_immediately: bool = True,
+    ) -> list[Item]:
         collected: list[Item] = []
+        self.last_fetched_urls = []
         for keyword in keywords:
             for page in range(1, pages + 1):
                 url = self.build_search_url(keyword, page)
-                if await dedup_cache.seen(url):
+                if not force and await dedup_cache.seen(url):
                     continue
 
                 html = await self.fetch(url)
+                self.last_fetched_urls.append(url)
                 items = self.parse(html, keyword)
                 for item in items:
                     item.source_platform = item.source_platform or self.name
                     item.product_hash = item.product_hash or product_hash_for(item.title, item.source_platform)
                 collected.extend(items)
-                await dedup_cache.mark_seen(url)
+                if mark_immediately:
+                    await dedup_cache.mark_seen(url, ttl=900)
 
         return self._dedupe_items(collected)
 
