@@ -9,6 +9,7 @@ class GSMArenaScraper(BaseScraper):
     name = "gsmarena"
     base_url = "https://www.gsmarena.com"
     requires_js = False
+    apply_price_filter = False
 
     def build_search_url(self, keyword: str, page: int = 1) -> str:
         return f"{self.base_url}/results.php3?sQuickSearch=yes&sName={quote_plus(keyword)}"

@@ -14,7 +14,7 @@ class DummyScraper(BaseScraper):
     def parse(self, html: str, keyword: str) -> list[Item]:
         return [
             Item(
-                title="Example Product",
+                title=f"Example {keyword} Product",
                 price=100,
                 product_url="https://example.com/p/1",
                 source_platform=self.name,

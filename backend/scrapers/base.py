@@ -69,6 +69,8 @@ class BaseScraper(ABC):
     name: str
     base_url: str
     requires_js: bool = False
+    apply_keyword_filter: bool = True
+    apply_price_filter: bool = True
 
     def __init__(self):
         self.headers = {
@@ -134,6 +136,21 @@ class BaseScraper(ABC):
                 html = await self.fetch(url)
                 self.last_fetched_urls.append(url)
                 items = self.parse(html, keyword)
+                parsed_count = len(items)
+                if self.apply_keyword_filter:
+                    items = self.filter_by_keyword(items, keyword)
+                after_keyword_count = len(items)
+                if self.apply_price_filter:
+                    items = self.filter_by_price_sanity(items)
+                after_price_count = len(items)
+                logger.info(
+                    "%s %s: parsed=%s after_keyword=%s after_price=%s",
+                    self.name,
+                    keyword,
+                    parsed_count,
+                    after_keyword_count,
+                    after_price_count,
+                )
                 for item in items:
                     item.source_platform = item.source_platform or self.name
                     item.product_hash = item.product_hash or product_hash_for(item.title, item.source_platform)
@@ -163,6 +180,29 @@ class BaseScraper(ABC):
         except ValueError:
             return None
         return value if value > 0 else None
+
+    def filter_by_keyword(self, items: list[Item], keyword: str) -> list[Item]:
+        """Keep items whose title contains at least one meaningful keyword token."""
+        tokens = [token for token in keyword.lower().split() if len(token) >= 4]
+        if not tokens:
+            return items
+        return [
+            item
+            for item in items
+            if item.title and any(token in item.title.lower() for token in tokens)
+        ]
+
+    def filter_by_price_sanity(self, items: list[Item]) -> list[Item]:
+        """Filter out low-price outliers that are usually accessories."""
+        priced = [item for item in items if item.price and item.price > 0]
+        if len(priced) < 5:
+            return items
+
+        sorted_prices = sorted(item.price for item in priced)
+        median = sorted_prices[len(sorted_prices) // 2]
+        floor = median * 0.3
+
+        return [item for item in items if not item.price or item.price >= floor]
 
     def _dedupe_items(self, items: list[Item]) -> list[Item]:
         deduped: dict[tuple[str, str], Item] = {}
