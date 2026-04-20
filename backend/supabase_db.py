@@ -21,6 +21,8 @@ def _serialize_row(product) -> dict:
     row = product.model_dump(mode="json") if hasattr(product, "model_dump") else dict(product)
     if "platform" in row and "source_platform" not in row:
         row["source_platform"] = row.pop("platform")
+    if row.get("source_platform") and "platform" not in row:
+        row["platform"] = row["source_platform"]
     if isinstance(row.get("scraped_at"), datetime):
         row["scraped_at"] = row["scraped_at"].isoformat()
     if isinstance(row.get("price"), float) and row["price"].is_integer():
