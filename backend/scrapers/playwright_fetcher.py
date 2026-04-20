@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import subprocess
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +28,7 @@ class PlaywrightFetcher:
             from playwright.async_api import async_playwright
 
             self._playwright = await async_playwright().start()
-            self._browser = await self._playwright.chromium.launch(
-                headless=True,
-                args=["--disable-blink-features=AutomationControlled"],
-            )
+            self._browser = await self._launch_browser()
             self._context = await self._browser.new_context(
                 user_agent=(
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -41,6 +40,28 @@ class PlaywrightFetcher:
                 timezone_id="Asia/Kolkata",
             )
             return self._context
+
+    async def _launch_browser(self):
+        try:
+            return await self._playwright.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+        except Exception as exc:
+            if "Executable doesn't exist" not in str(exc):
+                raise
+            logger.warning("Playwright browser executable missing; installing Chromium at runtime.")
+            await asyncio.to_thread(self._install_chromium)
+            return await self._playwright.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+
+    def _install_chromium(self) -> None:
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=True,
+        )
 
     async def fetch(self, url: str, wait_ms: int = 1800) -> str:
         context = await self._ensure_context()
