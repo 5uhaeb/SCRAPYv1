@@ -104,6 +104,8 @@ class FlipkartScraper(BaseScraper):
         collected: list[Item] = []
         self.last_fetched_urls = []
         for keyword in keywords:
+            keyword_items: list[Item] = []
+            fetched_urls: list[str] = []
             for page in range(1, pages + 1):
                 if page > 1:
                     await asyncio.sleep(random.uniform(3, 7))
@@ -116,15 +118,19 @@ class FlipkartScraper(BaseScraper):
                     html = await self.fetch(url)
                     self.last_fetched_urls.append(url)
                     items = self.parse(html, keyword)
-                    items = self.apply_relevance_filters(items, keyword)
                 except BlockedError as exc:
                     logger.warning("%s", exc)
                     continue
 
-                for item in items:
-                    item.product_hash = item.product_hash or product_hash_for(item.title, item.source_platform)
-                collected.extend(items)
-                if mark_immediately:
+                keyword_items.extend(items)
+                fetched_urls.append(url)
+
+            keyword_items = self.apply_relevance_filters(keyword_items, keyword)
+            for item in keyword_items:
+                item.product_hash = item.product_hash or product_hash_for(item.title, item.source_platform)
+            collected.extend(keyword_items)
+            if mark_immediately:
+                for url in fetched_urls:
                     await dedup_cache.mark_seen(url, ttl=900)
 
         return self._dedupe_items(collected)
