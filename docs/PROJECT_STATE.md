@@ -6,9 +6,10 @@ starts, and price history writes. The live, verified adapters are Flipkart and V
 Flipkart is the most stable current adapter after Playwright hardening, title cleanup,
 out-of-stock skipping, keyword filtering, and price sanity filtering. The registered but not
 fully verified adapters are Amazon.in, Croma, Reliance Digital, and GSMArena. The latest
-commit is 709add5, locally verified with `python -m pytest` on 2026-04-20; the latest
-deployment smoke evidence in this session verified frontend-to-backend scrape/results flow
-before 709add5, so redeploy and smoke-test 709add5 before treating it as production-verified.
+implementation commit before doc-only handoff updates is 709add5, locally verified with
+`python -m pytest` on 2026-04-20; the latest deployment smoke evidence in this session
+verified frontend-to-backend scrape/results flow before 709add5, so redeploy and smoke-test
+709add5 or newer before treating it as production-verified.
 
 ## 2. Architecture Snapshot
 
@@ -36,9 +37,12 @@ before 709add5, so redeploy and smoke-test 709add5 before treating it as product
 | `backend/api.py` | FastAPI routes, API-key auth, async jobs, polling, timeouts |
 | `backend/supabase_db.py` | Supabase client, products upsert, price_history insert |
 | `backend/scrapers/base.py` | `Item`, `BaseScraper`, filters, price parsing, `BlockedError` |
+| `backend/scrapers/registry.py` | Adapter registration, aliases, and scraper factory |
 | `backend/scrapers/playwright_fetcher.py` | Shared Playwright context for base JS fetches |
 | `backend/scrapers/dedup.py` | Upstash Redis seen-url cache and health check |
 | `backend/scrapers/sites/*.py` | Per-site adapters and parsing strategies |
+| `backend/matching.py` | Rapidfuzz product grouping for cross-site comparison |
+| `backend/alerts.py` | Watchlist writes, price-drop checks, Telegram alert sending |
 | `frontend/index.html` | Static Vercel UI, job start/polling, results rendering |
 | `.github/workflows/scheduled_scrape.yml` | Six-hour cron calling deployed `/v2/scrape/all` |
 
@@ -88,6 +92,7 @@ before 709add5, so redeploy and smoke-test 709add5 before treating it as product
 - Render `/health`: returned HTTP 200 on 2026-04-20 with DB and Redis true.
 - `/v2/scrapers`: registered adapters were visible in the frontend and backend health data.
 - API-key auth for `/v2/scrape`: local `.env` key successfully started Render jobs.
+- `force=true` scrape override: verified through repeated smoke tests to bypass Redis dedup.
 - Async polling: `/v2/scrape/{job_id}` returned running, complete, and failed states.
 - Flipkart scrape: verified 2026-04-20 after hardening. `iphone 15` saved 12 rows and
   `samsung s24` saved 24 rows from Render jobs with no errors.
@@ -95,8 +100,9 @@ before 709add5, so redeploy and smoke-test 709add5 before treating it as product
   were removed and minimum current row was a real OnePlus 12R at INR 33,160.
 - Flipkart title cleanup: verified latest visible rows did not include "Currently
   unavailable" or "Add to Compare" text.
-- VijaySales scrape through frontend: verified 2026-04-20 by UI result set for `iphone 16`,
-  including VijaySales rows such as Apple iPhone 16 at INR 58,190.
+- VijaySales scrape through frontend: partially verified 2026-04-20 by UI result set for
+  `iphone 16`, including VijaySales rows such as Apple iPhone 16 at INR 58,190. Treat it as
+  fragile because URL-builder and stale-accessory issues remain in Section 5.
 - Supabase upsert + price_history: verified during smoke testing after `image_url` and
   service-role key fixes; products and price_history received rows.
 - Frontend-to-backend flow: verified on Vercel UI 2026-04-20. API connected, protected scrape
@@ -118,15 +124,20 @@ before 709add5, so redeploy and smoke-test 709add5 before treating it as product
   other queries, not `/search/{keyword}`. Fix: confirm current site behavior and adjust.
 - **VijaySales result pollution risk**: frontend cheapest cards showed an old VijaySales
   iPhone accessory for `iphone 17`. Fix: clean stale rows and strengthen adapter filtering.
+- **Possible platform label mismatch**: if UI or SQL shows labels such as `flipkart1`,
+  diagnose with `SELECT DISTINCT source_platform FROM products;`. Fix either adapter writes
+  or frontend display after confirming where the label originates.
 - **Dedup ordering not fully centralized**: `BaseScraper.run()` can still mark seen inside
   adapter runs when `mark_immediately=True`; API path uses `mark_immediately=False`. Fix:
-  move all marking to post-DB-save only and remove adapter-level early marking.
+  move all marking to post-DB-save only and remove adapter-level early marking. Impact:
+  a failed save can lock a URL out of retries until TTL expiry and create silent data gaps.
 - **Redis namespace coarse**: all URLs use `scrapyv1:seen_urls:*` with one TTL. Fix: split
   search URLs and product URLs into separate namespaces and TTLs.
 - **Cheapest endpoint is naive**: it orders by price for keyword match and can surface stale
   accessories from older rows. Fix: filter by recent `scraped_at` and apply price sanity.
 - **Keyword filter weak on short/model tokens**: tokens under 4 chars are ignored, so
-  `macbook air m3` only filters by `macbook`. Fix: add domain-specific model-token logic.
+  `macbook air m3` only filters by `macbook`, and `iphone 15` only filters by `iphone`.
+  Fix: add domain-specific model-token logic for short but meaningful model terms.
 
 ## 6. Known Limitations (Not Bugs)
 
@@ -144,7 +155,7 @@ before 709add5, so redeploy and smoke-test 709add5 before treating it as product
 | Variable | Required by | Set in |
 |----------|-------------|--------|
 | `SUPABASE_URL` | backend Supabase client | Render, `.env` locally |
-| `SUPABASE_KEY` | backend Supabase client, should be service_role | Render, `.env` locally |
+| `SUPABASE_KEY` | backend Supabase client, must be service_role, not anon | Render, `.env` locally |
 | `SCRAPE_API_KEY` | protected scrape endpoints, GitHub Actions | Render, GitHub secret, `.env` locally |
 | `UPSTASH_REDIS_REST_URL` | Redis dedup | Render, `.env` locally |
 | `UPSTASH_REDIS_REST_TOKEN` | Redis dedup | Render, `.env` locally |
@@ -156,6 +167,8 @@ before 709add5, so redeploy and smoke-test 709add5 before treating it as product
 `SCRAPE_API_URL` is a GitHub Actions variable, not a secret. It should point at
 `https://scrapyv1.onrender.com`. The workflow falls back to
 `https://scrapy-api.onrender.com`, which appears stale for the current Render service.
+If `SUPABASE_KEY` is an anon key, inserts can fail with row-level security violations; see
+Section 11.
 
 ## 8. Database State
 
@@ -167,6 +180,9 @@ before 709add5, so redeploy and smoke-test 709add5 before treating it as product
   nullable and backfilled from `source_platform`.
 - UNIQUE index: `(source_platform, product_url)` where both values are not null.
 - INDEX: `(keyword, source_platform, scraped_at DESC)`.
+- `product_hash` is an md5-based application identifier derived from normalized title plus
+  source platform before insert. It is used by price_history and history endpoints but is not
+  DB-unique; dirty title changes can fragment history for the same real product.
 - `rating` and `reviews_count` are not present in repo migrations; verify in Supabase before
   relying on them.
 
@@ -189,6 +205,7 @@ service_role key and products/price_history writes were verified after the key s
 1. **Smoke-test latest 709add5 deployment** (10 min)
    - Deploy latest to Render and Vercel.
    - Run frontend scrape: `flipkart`, keyword `iphone 15`, pages `1`.
+   - Use `force=true` for API smoke tests if Redis has seen the URL recently.
    - Expected: job completes, status loader stops, saved_count greater than 0.
    - Verify: Render `/health` returns 200 and Vercel badge says API connected.
 
@@ -252,6 +269,8 @@ service_role key and products/price_history writes were verified after the key s
   normal price source?
 - Should the vanilla frontend remain single-file, or move to Alpine.js/HTMX for state?
 - Is the Streamlit dashboard still worth maintaining now that the Vercel frontend works?
+  It is low-maintenance because it is one file, but it duplicates UI surface area; revisit
+  the first time a feature would need to be implemented in both places.
 - When should cross-site matching move beyond `rapidfuzz` to embeddings or curated rules?
 - Should cheapest comparisons ignore products older than a freshness window?
 
