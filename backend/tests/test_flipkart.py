@@ -45,3 +45,55 @@ def test_parse_structural_extracts_product_cards():
 def test_parse_empty_raises_blocked_error():
     with pytest.raises(BlockedError):
         FlipkartScraper().parse("<html><body>No products</body></html>", "iphone 15")
+
+
+def test_clean_title_strips_numbering_prefix():
+    assert FlipkartScraper().clean_title("1. Apple iPhone 15 (Blue, 128 GB)") == "Apple iPhone 15 (Blue, 128 GB)"
+
+
+def test_clean_title_strips_rating_suffix():
+    title = "Apple iPhone 15 (Blue, 128 GB) 4.6 2,74,016 Ratings & 9,564 Reviews"
+    assert FlipkartScraper().clean_title(title) == "Apple iPhone 15 (Blue, 128 GB)"
+
+
+def test_skip_card_marked_currently_unavailable():
+    html = """
+    <div data-id="oos">
+      <a href="/apple-iphone-15-white/p/oos">
+        <img alt="Apple iPhone 15 (White, 128 GB)" />
+        <span>Currently unavailable</span>
+      </a>
+      <div>₹58,999</div>
+    </div>
+    """
+
+    assert FlipkartScraper().parse_structural(html, "iphone 15") == []
+
+
+def test_skip_card_with_notify_me_button():
+    html = """
+    <div data-id="oos">
+      <a href="/apple-iphone-15-white/p/oos">
+        <img alt="Apple iPhone 15 (White, 128 GB)" />
+      </a>
+      <button>Notify Me</button>
+      <div>₹58,999</div>
+    </div>
+    """
+
+    assert FlipkartScraper().parse_structural(html, "iphone 15") == []
+
+
+def test_parse_structural_prefers_img_alt_over_card_text():
+    html = Path("tests/fixtures/flipkart_iphone.html").read_text(encoding="utf-8")
+
+    items = FlipkartScraper().parse_structural(html, "iphone 15")
+
+    titles = [item.title for item in items]
+    assert "Apple iPhone 15 (Blue, 128 GB)" in titles
+    assert all("Add to Compare" not in title for title in titles)
+    assert all("Currently unavailable" not in title for title in titles)
+
+
+def test_clean_title_returns_none_for_pure_ui_text():
+    assert FlipkartScraper().clean_title("Add to Compare") is None

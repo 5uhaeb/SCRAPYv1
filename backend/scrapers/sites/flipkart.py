@@ -31,6 +31,23 @@ class FlipkartScraper(BaseScraper):
     base_url = "https://www.flipkart.com"
     requires_js = True
     max_products = 40
+    stock_block_patterns = (
+        "currently unavailable",
+        "out of stock",
+        "sold out",
+        "notify me",
+    )
+    title_skip_patterns = (
+        "currently unavailable",
+        "add to compare",
+        "out of stock",
+        "sold out",
+        "notify me",
+        "ratings",
+        "reviews",
+        "₹",
+        "â‚¹",
+    )
 
     def build_search_url(self, keyword: str, page: int = 1) -> str:
         return f"{self.base_url}/search?q={quote_plus(keyword)}&page={page}"
@@ -160,6 +177,8 @@ class FlipkartScraper(BaseScraper):
                 continue
 
             container = self._nearest_product_container(anchor)
+            if self._is_out_of_stock(container):
+                continue
             title = self._title_from_anchor(anchor)
             price = self._price_near(anchor, container)
             if not title or len(title) <= 10 or price is None:
@@ -259,15 +278,46 @@ class FlipkartScraper(BaseScraper):
                 return current
         return node
 
-    def _title_from_anchor(self, anchor: Node) -> str:
+    def clean_title(self, raw: str | None) -> str | None:
+        title = self._clean_text(raw or "")
+        title = re.sub(r"^\d+\.?\s*", "", title)
+        title = re.sub(
+            r"\b\d(?:\.\d)?\s+[\d,]+\s+Ratings?\s*&\s*[\d,]+\s+Reviews?.*$",
+            "",
+            title,
+            flags=re.IGNORECASE,
+        )
+        title = re.sub(r"\b\d(?:\.\d)?\s+[\d,]+\s+Ratings?.*$", "", title, flags=re.IGNORECASE)
+        title = re.sub(r"\b\d+%\s*off\b.*$", "", title, flags=re.IGNORECASE)
+        title = re.sub(r"\bsave\s*(?:₹|â‚¹|rs\.?)\s*[\d,]+.*$", "", title, flags=re.IGNORECASE)
+        title = re.sub(r"\bupto\s*(?:₹|â‚¹|rs\.?)\s*[\d,]+.*$", "", title, flags=re.IGNORECASE)
+        title = re.sub(r"\b(exchange|bank)\s+offer.*$", "", title, flags=re.IGNORECASE)
+        title = re.sub(r"\.{3,}$", "", title).strip()
+        title = self._clean_text(title)
+        if any(pattern in title.lower() for pattern in self.title_skip_patterns):
+            return None
+        if len(title) > 150:
+            title = title[:150].rstrip()
+        if len(title) < 10 or not re.search(r"[A-Za-z]", title):
+            return None
+        return title
+
+    def _title_from_anchor(self, anchor: Node) -> str | None:
+        img = anchor.css_first("img[alt]")
+        if img:
+            title = self.clean_title(img.attributes.get("alt"))
+            if title:
+                return title
+
         text = self._clean_text(anchor.text(separator=" "))
-        if len(text) > 10:
-            return text
+        if self._looks_clean_title(text):
+            return self.clean_title(text)
+
         for node in anchor.css("*"):
             text = self._clean_text(node.text(separator=" "))
-            if len(text) > 10:
-                return text
-        return ""
+            if self._looks_clean_title(text):
+                return self.clean_title(text)
+        return None
 
     def _price_near(self, anchor: Node, container: Node) -> float | None:
         for node in [anchor, container]:
@@ -285,7 +335,7 @@ class FlipkartScraper(BaseScraper):
         return None
 
     def _first_price(self, text: str) -> float | None:
-        match = re.search(r"₹\s*([\d,]+(?:\.\d+)?)", text or "")
+        match = re.search(r"(?:₹|â‚¹)\s*([\d,]+(?:\.\d+)?)", text or "")
         return self.normalize_price(match.group(1)) if match else None
 
     def _image_near(self, anchor: Node, container: Node) -> str | None:
@@ -297,6 +347,21 @@ class FlipkartScraper(BaseScraper):
 
     def _clean_text(self, value: str) -> str:
         return " ".join((value or "").split()).strip()
+
+    def _looks_clean_title(self, value: str) -> bool:
+        text = self._clean_text(value)
+        lowered = text.lower()
+        if len(text) < 20 or len(text) > 200:
+            return False
+        if any(pattern in lowered for pattern in self.title_skip_patterns):
+            return False
+        if re.search(r"\b\d(?:\.\d)?\s+[\d,]+\s+Ratings?\b", text, flags=re.IGNORECASE):
+            return False
+        return bool(re.search(r"[A-Za-z]", text))
+
+    def _is_out_of_stock(self, node: Node) -> bool:
+        text = self._clean_text(node.text(separator=" ")).lower()
+        return any(pattern in text for pattern in self.stock_block_patterns)
 
     def _save_debug_html(self, html: str) -> str:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
