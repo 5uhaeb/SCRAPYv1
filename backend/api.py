@@ -123,7 +123,8 @@ def require_scrape_api_key(request: Request, x_api_key: str | None = Header(defa
         raise HTTPException(status_code=429, detail="The scraper is busy. Try again shortly.")
 
     now = time.monotonic()
-    client_id = request.client.host if request.client else "unknown"
+    forwarded_for = request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()
+    client_id = forwarded_for or (request.client.host if request.client else "unknown")
     last_request = SCRAPE_REQUESTS.get(client_id, 0)
     if now - last_request < PUBLIC_SCRAPE_COOLDOWN_SECONDS:
         retry_after = max(1, int(PUBLIC_SCRAPE_COOLDOWN_SECONDS - (now - last_request)))
