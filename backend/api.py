@@ -28,7 +28,59 @@ from mongodb_db import (
 
 load_dotenv()
 
-app = FastAPI(title="SCRAPYv2 API")
+API_DESCRIPTION = """
+## Product price intelligence API
+
+SCRAPYv2 searches supported Indian e-commerce sites, normalizes product listings, stores
+current prices and historical observations in MongoDB, and exposes comparison and alert APIs.
+
+### Typical workflow
+
+1. Call **GET `/v2/scrapers`** to discover supported site identifiers.
+2. Submit **POST `/v2/scrape`** with one or more sites and keywords.
+3. The API immediately returns `202 Accepted` with a `job_id` and `status_url`.
+4. Poll **GET `/v2/scrape/{job_id}`** until the status becomes `complete` or `failed`.
+5. Query saved data through `/v2/products`, `/cheapest`, `/compare`, or `/history`.
+
+### Scrape access and limits
+
+The hosted API is public. A client can start one scrape every **30 seconds**, and the service
+runs at most **two jobs concurrently**. A `429` response means the cooldown is active or all
+worker slots are busy. Private deployments may set `SCRAPE_API_KEY`; clients then send it in
+the `x-api-key` header instead of using public throttling.
+
+### Persistence and job lifetime
+
+Products, price history, watchlists, and URL deduplication are stored in the shared MongoDB
+cluster under the separate `scrapyv1` database. Product writes are idempotent by platform and
+URL. Each successful observation appends a price-history record. Job status itself is held in
+the running API process, so save the returned status URL and poll it promptly; a backend restart
+clears completed job metadata but does not remove saved products or price history.
+
+### Interactive usage
+
+Expand an operation, select **Try it out**, enter its parameters or JSON body, and press
+**Execute**. The consumer dashboard is available at
+[scrap-yv1.vercel.app](https://scrap-yv1.vercel.app/).
+"""
+
+OPENAPI_TAGS = [
+    {"name": "Service", "description": "Service discovery and operational health."},
+    {"name": "Scraping", "description": "Start asynchronous scrape jobs and monitor their lifecycle."},
+    {"name": "Products", "description": "Read normalized products, comparisons, and price history from MongoDB."},
+    {"name": "Alerts", "description": "Create target-price watches used by Telegram price alerts."},
+    {"name": "Legacy", "description": "Compatibility endpoint for older single-site clients."},
+]
+
+app = FastAPI(
+    title="SCRAPYv2 Price Intelligence API",
+    summary="Scrape, compare, and track e-commerce prices",
+    description=API_DESCRIPTION,
+    version="2.1.0",
+    openapi_tags=OPENAPI_TAGS,
+    contact={"name": "SCRAPYv2 source", "url": "https://github.com/5uhaeb/SCRAPYv1"},
+    license_info={"name": "MIT", "identifier": "MIT"},
+)
 
 frontend_origin = os.getenv("VERCEL_FRONTEND_ORIGIN")
 allowed_origins = [
@@ -53,10 +105,10 @@ app.add_middleware(
 
 
 class ScrapeRequest(BaseModel):
-    sites: list[str] = Field(default_factory=list)
-    keywords: list[str]
-    pages: int = Field(default=2, ge=1, le=10)
-    force: bool = False
+    sites: list[str] = Field(default_factory=list, description="Site identifiers returned by `/v2/scrapers`.", examples=[["vijaysales", "flipkart"]])
+    keywords: list[str] = Field(description="Product search phrases. Blank strings are ignored.", examples=[["iphone 15", "samsung s24"]])
+    pages: int = Field(default=2, ge=1, le=10, description="Maximum result pages to fetch per site and keyword.")
+    force: bool = Field(default=False, description="Ignore the short-lived URL deduplication cache and fetch again.")
 
 
 class LegacyScrapeRequest(BaseModel):
@@ -67,9 +119,9 @@ class LegacyScrapeRequest(BaseModel):
 
 
 class WatchRequest(BaseModel):
-    product_hash: str
-    target_price: float = Field(gt=0)
-    chat_id: str | None = None
+    product_hash: str = Field(description="Stable product hash returned by a product or scrape response.")
+    target_price: float = Field(gt=0, description="Alert when the observed price is at or below this amount in INR.")
+    chat_id: str | None = Field(default=None, description="Optional Telegram chat ID; the server default is used when omitted.")
 
 
 class Job(BaseModel):
@@ -100,13 +152,13 @@ async def shutdown():
     await playwright_fetcher.shutdown()
 
 
-@app.get("/")
+@app.get("/", tags=["Service"], summary="Describe the running API")
 async def home():
     return {"message": "SCRAPYv2 API is running", "scrapers": sorted(SCRAPERS)}
 
 
-@app.get("/scrapers")
-@app.get("/v2/scrapers")
+@app.get("/scrapers", include_in_schema=False)
+@app.get("/v2/scrapers", tags=["Service"], summary="List supported scraper identifiers", description="Returns the exact site names accepted by the `sites` field of scrape requests.")
 async def scrapers():
     return {"scrapers": sorted(SCRAPERS)}
 
@@ -132,7 +184,7 @@ def require_scrape_api_key(request: Request, x_api_key: str | None = Header(defa
     SCRAPE_REQUESTS[client_id] = now
 
 
-@app.post("/scrape")
+@app.post("/scrape", tags=["Legacy"], summary="Run a legacy synchronous scrape", deprecated=True)
 async def scrape_legacy(req: LegacyScrapeRequest):
     site = req.site.strip().lower()
     keywords = [keyword.strip() for keyword in req.keywords if keyword.strip()]
@@ -160,7 +212,7 @@ async def scrape_legacy(req: LegacyScrapeRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/v2/scrape", status_code=status.HTTP_202_ACCEPTED)
+@app.post("/v2/scrape", status_code=status.HTTP_202_ACCEPTED, tags=["Scraping"], summary="Start a scrape job", description="Queues an asynchronous scrape for selected sites. Use the returned `status_url` to monitor it. Public cooldown and concurrency limits apply.")
 async def scrape(req: ScrapeRequest, _: None = Depends(require_scrape_api_key)):
     sites = [site.strip().lower() for site in req.sites if site.strip()]
     if not sites:
@@ -168,12 +220,12 @@ async def scrape(req: ScrapeRequest, _: None = Depends(require_scrape_api_key)):
     return _start_job(sites, req.keywords, req.pages, req.force)
 
 
-@app.post("/v2/scrape/all", status_code=status.HTTP_202_ACCEPTED)
+@app.post("/v2/scrape/all", status_code=status.HTTP_202_ACCEPTED, tags=["Scraping"], summary="Scrape every registered site", description="Queues all registered adapters for the supplied keywords. This is heavier than selecting individual sites.")
 async def scrape_all(req: ScrapeRequest, _: None = Depends(require_scrape_api_key)):
     return _start_job(list(SCRAPERS), req.keywords, req.pages, req.force)
 
 
-@app.get("/v2/scrape/{job_id}")
+@app.get("/v2/scrape/{job_id}", tags=["Scraping"], summary="Get scrape job status", description="Returns lifecycle timestamps, normalized results, saved and alert counts, and any per-site error details. Poll until `complete` or `failed`.")
 async def scrape_status(job_id: str):
     job = JOBS.get(job_id)
     if not job:
@@ -181,8 +233,8 @@ async def scrape_status(job_id: str):
     return job
 
 
-@app.get("/products")
-@app.get("/v2/products")
+@app.get("/products", include_in_schema=False)
+@app.get("/v2/products", tags=["Products"], summary="List saved products", description="Returns recently observed MongoDB products with optional case-insensitive keyword and exact platform filters. Use limit and offset for pagination.")
 async def products(
     keyword: str | None = None,
     platform: str | None = None,
@@ -195,8 +247,8 @@ async def products(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/products/cheapest")
-@app.get("/v2/products/cheapest")
+@app.get("/products/cheapest", include_in_schema=False)
+@app.get("/v2/products/cheapest", tags=["Products"], summary="Find the cheapest matching products", description="Filters by keyword, excludes missing prices, and orders results from lowest to highest price.")
 async def products_cheapest(keyword: str, limit: int = Query(default=20, ge=1, le=100)):
     try:
         return {"products": cheapest_products(keyword, limit)}
@@ -204,8 +256,8 @@ async def products_cheapest(keyword: str, limit: int = Query(default=20, ge=1, l
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/products/compare")
-@app.get("/v2/products/compare")
+@app.get("/products/compare", include_in_schema=False)
+@app.get("/v2/products/compare", tags=["Products"], summary="Compare equivalent products across platforms", description="Uses normalized titles and fuzzy matching to group likely equivalent listings across stores.")
 async def products_compare(keyword: str, limit: int = Query(default=300, ge=1, le=1000)):
     try:
         rows = list_products(keyword=keyword, limit=limit, offset=0)
@@ -215,8 +267,8 @@ async def products_compare(keyword: str, limit: int = Query(default=300, ge=1, l
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/products/{product_hash}/history")
-@app.get("/v2/products/{product_hash}/history")
+@app.get("/products/{product_hash}/history", include_in_schema=False)
+@app.get("/v2/products/{product_hash}/history", tags=["Products"], summary="Get a product's price history", description="Returns all stored price observations for a product hash in chronological order.")
 async def products_history(product_hash: str):
     try:
         return {"product_hash": product_hash, "history": product_history(product_hash)}
@@ -224,8 +276,8 @@ async def products_history(product_hash: str):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/watch")
-@app.post("/v2/watch")
+@app.post("/watch", include_in_schema=False)
+@app.post("/v2/watch", tags=["Alerts"], summary="Create or update a target-price watch", description="Upserts a MongoDB watchlist entry. Telegram delivery requires bot and chat credentials on the backend.")
 async def watch(req: WatchRequest):
     try:
         return {"watch": add_watch(req.product_hash, req.target_price, req.chat_id)}
@@ -233,7 +285,7 @@ async def watch(req: WatchRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/health")
+@app.get("/health", tags=["Service"], summary="Check service dependencies", description="Reports MongoDB connectivity, MongoDB-backed dedup availability, Playwright warm state, and registered scrapers.")
 async def health():
     dedup_ok = await dedup_cache.ping()
     return {
