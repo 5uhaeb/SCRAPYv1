@@ -50,7 +50,7 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 ```
 
-`SCRAPE_API_KEY` protects only `/v2/scrape*` endpoints. Public GET endpoints stay open. Leave it unset for local development if you want scrape calls without a key.
+`SCRAPE_API_KEY` optionally protects `/v2/scrape*` endpoints. When unset, scrape calls are public and protected by `PUBLIC_SCRAPE_COOLDOWN_SECONDS` and `MAX_CONCURRENT_JOBS`.
 
 ## API
 
@@ -108,8 +108,7 @@ Render:
 Vercel:
 
 - `vercel.json` serves `frontend/**` as static files.
-- Set the Backend URL in the UI to your Render URL.
-- If Render has `SCRAPE_API_KEY`, enter it in the UI when running scrapes.
+- The hosted UI uses `https://scrapyv1.onrender.com` automatically; users do not need to configure an API URL or key.
 
 GitHub Actions:
 

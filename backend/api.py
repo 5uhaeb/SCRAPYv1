@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -87,6 +87,9 @@ class Job(BaseModel):
 
 
 JOBS: dict[str, Job] = {}
+SCRAPE_REQUESTS: dict[str, float] = {}
+PUBLIC_SCRAPE_COOLDOWN_SECONDS = int(os.getenv("PUBLIC_SCRAPE_COOLDOWN_SECONDS", "30"))
+MAX_CONCURRENT_JOBS = int(os.getenv("MAX_CONCURRENT_JOBS", "2"))
 # Long enough for slow Render Playwright runs; set to 0 to disable the safety cutoff.
 SCRAPER_TIMEOUT_SECONDS = int(os.getenv("SCRAPER_TIMEOUT_SECONDS", "420"))
 
@@ -107,10 +110,24 @@ async def scrapers():
     return {"scrapers": sorted(SCRAPERS)}
 
 
-def require_scrape_api_key(x_api_key: str | None = Header(default=None)) -> None:
+def require_scrape_api_key(request: Request, x_api_key: str | None = Header(default=None)) -> None:
     expected = os.getenv("SCRAPE_API_KEY")
-    if expected and x_api_key != expected:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+    if expected:
+        if x_api_key != expected:
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+        return
+
+    running_jobs = sum(job.status in {"queued", "running"} for job in JOBS.values())
+    if running_jobs >= MAX_CONCURRENT_JOBS:
+        raise HTTPException(status_code=429, detail="The scraper is busy. Try again shortly.")
+
+    now = asyncio.get_running_loop().time()
+    client_id = request.client.host if request.client else "unknown"
+    last_request = SCRAPE_REQUESTS.get(client_id, 0)
+    if now - last_request < PUBLIC_SCRAPE_COOLDOWN_SECONDS:
+        retry_after = max(1, int(PUBLIC_SCRAPE_COOLDOWN_SECONDS - (now - last_request)))
+        raise HTTPException(status_code=429, detail=f"Please wait {retry_after}s before starting another scrape.")
+    SCRAPE_REQUESTS[client_id] = now
 
 
 @app.post("/scrape")
