@@ -4,7 +4,8 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 
-from supabase_db import _require_client
+from mongodb_db import add_watch as save_watch
+from mongodb_db import last_price, watchlist_matches
 
 load_dotenv()
 
@@ -74,46 +75,15 @@ async def send_telegram_alert(alert: dict[str, Any]) -> bool:
 
 
 def add_watch(product_hash: str, target_price: float, chat_id: str | None = None) -> dict[str, Any]:
-    client = _require_client()
-    row = {
-        "product_hash": product_hash,
-        "chat_id": chat_id or os.getenv("TELEGRAM_CHAT_ID"),
-        "target_price": target_price,
-    }
-    result = client.table("watchlist").insert(row).execute()
-    data = result.data or []
-    return data[0] if data else row
+    return save_watch(product_hash, target_price, chat_id)
 
 
 def _last_price(product_hash: str) -> float | None:
-    client = _require_client()
-    rows = (
-        client.table("price_history")
-        .select("price")
-        .eq("product_hash", product_hash)
-        .not_.is_("price", "null")
-        .order("scraped_at", desc=True)
-        .limit(1)
-        .execute()
-        .data
-        or []
-    )
-    if not rows:
-        return None
-    return float(rows[0]["price"])
+    return last_price(product_hash)
 
 
 def _watchlist_matches(product_hash: str, price: float) -> list[dict[str, Any]]:
-    client = _require_client()
-    return (
-        client.table("watchlist")
-        .select("*")
-        .eq("product_hash", product_hash)
-        .gte("target_price", price)
-        .execute()
-        .data
-        or []
-    )
+    return watchlist_matches(product_hash, price)
 
 
 def _format_alert(alert: dict[str, Any]) -> str:

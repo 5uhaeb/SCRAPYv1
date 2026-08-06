@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from supabase_db import upsert_products
+from mongodb_db import upsert_products
 
 BASE = "https://www.vijaysales.com"
 JSON_OUT = "vijaysales_mobiles.json"

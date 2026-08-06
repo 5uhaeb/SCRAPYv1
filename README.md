@@ -1,6 +1,6 @@
 # SCRAPYv2
 
-SCRAPYv2 is a price-tracking scraper with a FastAPI backend, static Vercel frontend, Supabase storage, optional Streamlit dashboard, scheduled scraping, price history, and Telegram price-drop alerts.
+SCRAPYv2 is a price-tracking scraper with a FastAPI backend, static Vercel frontend, MongoDB storage, optional Streamlit dashboard, scheduled scraping, price history, and Telegram price-drop alerts.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ SCRAPYv2 is a price-tracking scraper with a FastAPI backend, static Vercel front
                  GitHub Actions cron
                          |
                          v
-Vercel static UI --> FastAPI on Render -----> Supabase Postgres
+Vercel static UI --> FastAPI on Render -----> MongoDB Atlas
                          |                         |
                          |                         +--> products
                          |                         +--> price_history
@@ -33,15 +33,15 @@ pip install -r requirements.txt
 uvicorn api:app --reload
 ```
 
-Run the SQL in `backend/migrations/001_dedup.sql` in the Supabase SQL editor before scraping with v2 endpoints.
+MongoDB indexes are created automatically before the first write. Products use a unique `(source_platform, product_url)` index.
 
 ## Environment Variables
 
 Copy `.env.example` to `.env` and set:
 
 ```env
-SUPABASE_URL=
-SUPABASE_KEY=
+MONGODB_URI=
+MONGODB_DB=scrapyv1
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 VERCEL_FRONTEND_ORIGIN=
@@ -102,7 +102,7 @@ Render:
 
 - Use `render.yaml`.
 - Set `rootDir: backend`.
-- Add Supabase, Upstash, Telegram, and `SCRAPE_API_KEY` env vars in Render.
+- Add MongoDB, Upstash, Telegram, and `SCRAPE_API_KEY` env vars in Render.
 - Start command: `uvicorn api:app --host 0.0.0.0 --port $PORT`.
 
 Vercel:
@@ -125,4 +125,14 @@ pip install -r requirements.txt -r requirements-dev.txt
 pytest
 ```
 
-Tests use fixtures and mocks only. They do not call real stores, Supabase, Redis, or Telegram.
+Tests use fixtures and mocks only. They do not call real stores, MongoDB, Redis, or Telegram.
+
+## Import existing Supabase data
+
+Export `products`, `price_history`, and `watchlist` as JSON from Supabase, then run:
+
+```bash
+python scripts/import_supabase_export.py --products products.json --history price_history.json --watchlist watchlist.json
+```
+
+The importer is repeat-safe for products and watchlist entries. Price-history exports should be imported once.

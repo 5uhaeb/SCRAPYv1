@@ -17,7 +17,7 @@ from scrapers.playwright_fetcher import playwright_fetcher
 from scrapers.registry import SCRAPERS, get_scraper
 from scrape_vijaysales import run as run_vijaysales
 from scrape_webscraper_ecom import run as run_webscraper
-from supabase_db import (
+from mongodb_db import (
     cheapest_products,
     db_healthy,
     list_products,

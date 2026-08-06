@@ -1,5 +1,8 @@
 # SCRAPYv1 / SCRAPYv2 Project Graph
 
+> Persistence update: the live application now uses `backend/mongodb_db.py` and MongoDB Atlas.
+> Supabase/SQL references below describe the retired architecture and remain only as historical context.
+
 > Purpose: give Codex / AI coding tools a fast map of this repo so they do not need to re-scan every file before making changes.
 
 ## 1. What this project does

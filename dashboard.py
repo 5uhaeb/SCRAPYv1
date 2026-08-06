@@ -7,20 +7,14 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from dotenv import load_dotenv
-from supabase import create_client
 
 BACKEND_DIR = Path(__file__).parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
 from scrapers.registry import SCRAPERS, get_scraper  # noqa: E402
-from supabase_db import upsert_products  # noqa: E402
+from mongodb_db import list_products, product_history, upsert_products  # noqa: E402
 
 load_dotenv()
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="E-commerce Scraper Dashboard", layout="wide")
 st.title("E-commerce Scraper Dashboard")
@@ -28,8 +22,7 @@ st.title("E-commerce Scraper Dashboard")
 
 @st.cache_data(ttl=60)
 def load_products():
-    res = supabase.table("products").select("*").execute()
-    df = pd.DataFrame(res.data or [])
+    df = pd.DataFrame(list_products(limit=10_000))
     if df.empty:
         return df
     if "platform" in df.columns and "source_platform" not in df.columns:
@@ -43,10 +36,9 @@ def load_products():
 
 @st.cache_data(ttl=60)
 def load_history(product_hash: str | None = None):
-    query = supabase.table("price_history").select("*").order("scraped_at")
-    if product_hash:
-        query = query.eq("product_hash", product_hash)
-    df = pd.DataFrame(query.execute().data or [])
+    if not product_hash:
+        return pd.DataFrame()
+    df = pd.DataFrame(product_history(product_hash))
     if df.empty:
         return df
     df["scraped_at"] = pd.to_datetime(df["scraped_at"], errors="coerce")

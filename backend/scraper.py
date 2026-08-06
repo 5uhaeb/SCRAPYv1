@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
 from playwright.sync_api import sync_playwright
-from supabase_db import upsert_products
+from mongodb_db import upsert_products
 
 HEADLESS = False
 MAX_PAGES = 2

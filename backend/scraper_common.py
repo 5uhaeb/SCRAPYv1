@@ -5,7 +5,7 @@ import random
 from datetime import datetime, timezone
 
 import requests
-from supabase_db import upsert_products
+from mongodb_db import upsert_products
 from profiles import PROFILES
 
 HEADERS = {

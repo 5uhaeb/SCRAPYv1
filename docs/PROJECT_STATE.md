@@ -1,3 +1,6 @@
+> Persistence update: the application now uses MongoDB Atlas through `backend/mongodb_db.py`.
+> Supabase details below are retained only as migration history.
+
 ## 1. Current State (One Paragraph)
 
 SCRAPYv1 is working end-to-end for the deployed Vercel frontend, Render FastAPI backend,

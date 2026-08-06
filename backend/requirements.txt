@@ -3,7 +3,7 @@ uvicorn[standard]
 python-dotenv==1.0.1
 requests
 beautifulsoup4
-supabase
+pymongo[srv]>=4.8,<5
 playwright
 httpx[http2]
 selectolax

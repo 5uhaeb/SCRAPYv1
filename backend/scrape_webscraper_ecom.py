@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import requests
 from bs4 import BeautifulSoup
 
-from supabase_db import upsert_products
+from mongodb_db import upsert_products
 
 BASE = "https://webscraper.io/test-sites/e-commerce/allinone"
 

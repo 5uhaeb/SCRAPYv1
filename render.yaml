@@ -5,10 +5,10 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     envVars:
-      - key: SUPABASE_URL
+      - key: MONGODB_URI
         sync: false
-      - key: SUPABASE_KEY
-        sync: false
+      - key: MONGODB_DB
+        value: scrapyv1
       - key: UPSTASH_REDIS_REST_URL
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN
