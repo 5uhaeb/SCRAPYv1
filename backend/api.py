@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Literal
@@ -121,7 +122,7 @@ def require_scrape_api_key(request: Request, x_api_key: str | None = Header(defa
     if running_jobs >= MAX_CONCURRENT_JOBS:
         raise HTTPException(status_code=429, detail="The scraper is busy. Try again shortly.")
 
-    now = asyncio.get_running_loop().time()
+    now = time.monotonic()
     client_id = request.client.host if request.client else "unknown"
     last_request = SCRAPE_REQUESTS.get(client_id, 0)
     if now - last_request < PUBLIC_SCRAPE_COOLDOWN_SECONDS:
