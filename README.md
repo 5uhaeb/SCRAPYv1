@@ -102,7 +102,7 @@ Render:
 
 - Use `render.yaml`.
 - Set `rootDir: backend`.
-- Add MongoDB, Upstash, Telegram, and `SCRAPE_API_KEY` env vars in Render.
+- Add MongoDB, Telegram, and `SCRAPE_API_KEY` env vars in Render. URL deduplication uses a MongoDB TTL collection.
 - Start command: `uvicorn api:app --host 0.0.0.0 --port $PORT`.
 
 Vercel:
@@ -125,7 +125,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 pytest
 ```
 
-Tests use fixtures and mocks only. They do not call real stores, MongoDB, Redis, or Telegram.
+Tests use fixtures and mocks only. They do not call real stores, MongoDB, or Telegram.
 
 ## Import existing Supabase data
 

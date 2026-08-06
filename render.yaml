@@ -9,10 +9,6 @@ services:
         sync: false
       - key: MONGODB_DB
         value: scrapyv1
-      - key: UPSTASH_REDIS_REST_URL
-        sync: false
-      - key: UPSTASH_REDIS_REST_TOKEN
-        sync: false
       - key: VERCEL_FRONTEND_ORIGIN
         sync: false
       - key: SCRAPE_API_KEY

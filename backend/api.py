@@ -216,11 +216,11 @@ async def watch(req: WatchRequest):
 
 @app.get("/health")
 async def health():
-    redis_ok = await dedup_cache.ping()
+    dedup_ok = await dedup_cache.ping()
     return {
         "status": "ok",
         "db": db_healthy(),
-        "redis": redis_ok,
+        "dedup": dedup_ok,
         "playwright": playwright_fetcher.ready,
         "registered_scrapers": sorted(SCRAPERS),
     }

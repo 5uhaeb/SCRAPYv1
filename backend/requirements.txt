@@ -9,6 +9,5 @@ httpx[http2]
 selectolax
 extruct
 tenacity
-upstash-redis
 rapidfuzz
 pydantic>=2

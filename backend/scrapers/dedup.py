@@ -1,60 +1,57 @@
-import logging
-import os
+import asyncio
+from datetime import datetime, timedelta, timezone
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
-logger = logging.getLogger(__name__)
+from mongodb_db import _collection, db_healthy
 
 
-class RedisDedup:
+class MongoDedup:
+    """Short-lived scrape URL deduplication stored in MongoDB."""
+
     def __init__(self):
-        self._client = None
-        self._warned = False
-        url = os.getenv("UPSTASH_REDIS_REST_URL")
-        token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
-        if not url or not token:
-            return
-
-        try:
-            from upstash_redis.asyncio import Redis
-
-            self._client = Redis(url=url, token=token)
-        except Exception as exc:
-            logger.warning("Redis dedup disabled: %s", exc)
+        self._index_ready = False
 
     @property
     def enabled(self) -> bool:
-        return self._client is not None
+        return db_healthy()
+
+    def _ensure_index(self) -> None:
+        if self._index_ready:
+            return
+        collection = _collection("scrape_dedup")
+        collection.create_index("url", unique=True, name="uniq_scrape_url")
+        collection.create_index("expires_at", expireAfterSeconds=0, name="expire_scrape_url")
+        self._index_ready = True
 
     async def seen(self, url: str) -> bool:
-        if not self._client:
-            self._log_missing()
+        def query() -> bool:
+            self._ensure_index()
+            return _collection("scrape_dedup").find_one(
+                {"url": url, "expires_at": {"$gt": datetime.now(timezone.utc)}},
+                {"_id": 1},
+            ) is not None
+
+        try:
+            return await asyncio.to_thread(query)
+        except Exception:
+            # Deduplication is an optimization and must never break a scrape.
             return False
-        return bool(await self._client.exists(self._key(url)))
 
     async def mark_seen(self, url: str, ttl: int = 3600) -> None:
-        if not self._client:
-            self._log_missing()
+        def write() -> None:
+            self._ensure_index()
+            _collection("scrape_dedup").update_one(
+                {"url": url},
+                {"$set": {"expires_at": datetime.now(timezone.utc) + timedelta(seconds=ttl)}},
+                upsert=True,
+            )
+
+        try:
+            await asyncio.to_thread(write)
+        except Exception:
             return
-        await self._client.set(self._key(url), "1", ex=ttl)
 
     async def ping(self) -> bool:
-        if not self._client:
-            return False
-        try:
-            return bool(await self._client.ping())
-        except Exception:
-            return False
-
-    def _key(self, url: str) -> str:
-        return f"scrapyv1:seen_urls:{url}"
-
-    def _log_missing(self) -> None:
-        if not self._warned:
-            logger.warning("Upstash Redis credentials missing; dedup cache is disabled.")
-            self._warned = True
+        return await asyncio.to_thread(db_healthy)
 
 
-dedup_cache = RedisDedup()
+dedup_cache = MongoDedup()
