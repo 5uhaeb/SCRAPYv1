@@ -403,7 +403,7 @@
 
     async function bootstrapApi() {
       await checkApi();
-      await loadScrapers();
+      await Promise.all([loadScrapers(), loadRecentProducts()]);
     }
 
     async function checkApi() {
@@ -521,7 +521,23 @@
       }
     }
 
-    function renderResults(products) {
+    async function loadRecentProducts() {
+      try {
+        const res = await fetch(`${apiBase()}/v2/products?limit=50`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Could not load saved products.");
+        latestProducts = data.products || [];
+        if (latestProducts.length) {
+          renderResults(latestProducts, false);
+          const firstKeyword = latestProducts.find(product => product.keyword)?.keyword;
+          if (firstKeyword) await renderCheapest(firstKeyword);
+        }
+      } catch (error) {
+        console.warn(error.message || "Could not load saved products.");
+      }
+    }
+
+    function renderResults(products, scrollToResults = true) {
       const section = document.getElementById("resultsSection");
       const body = document.getElementById("resultsBody");
       section.style.display = "block";
@@ -539,7 +555,7 @@
         body.appendChild(tr);
         if (p.product_hash) loadSparkline(p.product_hash, `spark-${index}`);
       });
-      section.scrollIntoView({ behavior: "smooth" });
+      if (scrollToResults) section.scrollIntoView({ behavior: "smooth" });
     }
 
     async function loadSparkline(productHash, canvasId) {
