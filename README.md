@@ -73,7 +73,7 @@ Set GitHub Actions variable `SCRAPE_API_URL` and secret `SCRAPE_API_KEY` for sch
 
 Job metadata and cooldowns are process-local: run one API worker. Recent completed jobs are bounded, and a restart removes job status. Products persist independently. Product/history writes are not a single transaction, title changes can fragment hashes, and comparison matching is approximate. Live store reliability, Telegram delivery and Docker runtime must be checked in the deployment environment; local tests do not prove them.
 
-The optional dashboard uses `requirements-dashboard.txt` and `streamlit run dashboard.py`. Legacy CLI scripts and the one-time Supabase JSON importer remain available; keep backups and import history only once.
+For the optional dashboard, install `pip install -r requirements-dashboard.txt` from the root, then run `streamlit run dashboard.py`. Its requirements include the backend parsers plus three visualization packages. Keep this tool local or behind operator access: it can run scrapers and write to MongoDB. Legacy CLI scripts and the one-time Supabase JSON importer remain available; keep backups and import history only once.
 
 ## Engineering lessons
 
