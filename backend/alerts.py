@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import Any
 
 import httpx
@@ -21,8 +22,8 @@ async def evaluate_price_alerts(items: list[Any]) -> list[dict[str, Any]]:
         if price is None or not product_hash:
             continue
 
-        previous = _last_price(product_hash)
-        watch_matches = _watchlist_matches(product_hash, float(price))
+        previous = await asyncio.to_thread(last_price, product_hash)
+        watch_matches = await asyncio.to_thread(watchlist_matches, product_hash, float(price))
         if previous and previous > 0:
             drop = (previous - float(price)) / previous
             if drop >= DROP_THRESHOLD:
@@ -76,14 +77,6 @@ async def send_telegram_alert(alert: dict[str, Any]) -> bool:
 
 def add_watch(product_hash: str, target_price: float, chat_id: str | None = None) -> dict[str, Any]:
     return save_watch(product_hash, target_price, chat_id)
-
-
-def _last_price(product_hash: str) -> float | None:
-    return last_price(product_hash)
-
-
-def _watchlist_matches(product_hash: str, price: float) -> list[dict[str, Any]]:
-    return watchlist_matches(product_hash, price)
 
 
 def _format_alert(alert: dict[str, Any]) -> str:

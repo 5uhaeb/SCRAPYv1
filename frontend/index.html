@@ -368,7 +368,8 @@
       applyTheme(isDark ? "light" : "dark");
     }
 
-    const DEFAULT_API_URL = "https://scrapyv1.onrender.com";
+    const DEFAULT_API_URL = location.hostname === "localhost" || location.hostname === "127.0.0.1"
+      ? "http://127.0.0.1:8000" : "https://scrapyv1.onrender.com";
 
     function apiBase() { return DEFAULT_API_URL; }
 
@@ -492,7 +493,7 @@
           <div class="deal-card">
             <div class="deal-title">${escapeHtml(p.title || "Untitled")}</div>
             <div class="deal-price">${formatPrice(p.price)}</div>
-            <div class="muted">${p.source_platform || p.platform || ""}</div>
+            <div class="muted">${escapeHtml(p.source_platform || p.platform || "")}</div>
           </div>
         `).join("") : '<span class="muted">No cheapest data yet.</span>';
       } catch {
@@ -516,6 +517,13 @@
       }
     }
 
+    function safeProductUrl(value) {
+      try {
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol) ? url.href : "#";
+      } catch { return "#"; }
+    }
+
     function renderResults(products, scrollToResults = true) {
       const section = document.getElementById("resultsSection");
       const body = document.getElementById("resultsBody");
@@ -529,7 +537,7 @@
           <td>${escapeHtml(p.title || "")}</td>
           <td>${formatPrice(p.price)}</td>
           <td><canvas class="sparkline" id="spark-${index}" width="110" height="32"></canvas></td>
-          <td><a href="${p.product_url}" target="_blank">Open</a></td>
+          <td><a href="${escapeHtml(safeProductUrl(p.product_url))}" target="_blank" rel="noopener noreferrer">Open</a></td>
         `;
         body.appendChild(tr);
         if (p.product_hash) loadSparkline(p.product_hash, `spark-${index}`);

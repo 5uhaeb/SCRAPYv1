@@ -131,14 +131,14 @@ with overview_tab:
     st.subheader("Latest rows")
     sort_col = "scraped_at" if "scraped_at" in df_f.columns else None
     display = df_f.sort_values(sort_col, ascending=False).head(50) if sort_col else df_f.head(50)
-    st.dataframe(display, use_container_width=True)
+    st.dataframe(display, width="stretch")
 
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("Items count by platform")
         if "source_platform" in df_f.columns and not df_f.empty:
             count_df = df_f.groupby("source_platform", as_index=False).size().rename(columns={"size": "count"})
-            st.plotly_chart(px.bar(count_df, x="source_platform", y="count"), use_container_width=True)
+            st.plotly_chart(px.bar(count_df, x="source_platform", y="count"), width="stretch")
         else:
             st.info("No platform data available.")
 
@@ -148,7 +148,7 @@ with overview_tab:
         if price_df.empty:
             st.info("No price data available for selected filters.")
         else:
-            st.plotly_chart(px.histogram(price_df, x="price", nbins=25, color="source_platform"), use_container_width=True)
+            st.plotly_chart(px.histogram(price_df, x="price", nbins=25, color="source_platform"), width="stretch")
 
     st.subheader("Average price by keyword")
     avg_df = df_f.dropna(subset=["price"]) if "price" in df_f.columns else pd.DataFrame()
@@ -156,7 +156,7 @@ with overview_tab:
         st.info("No price data to compute averages.")
     else:
         avg = avg_df.groupby("keyword", as_index=False)["price"].mean()
-        st.plotly_chart(px.bar(avg, x="keyword", y="price"), use_container_width=True)
+        st.plotly_chart(px.bar(avg, x="keyword", y="price"), width="stretch")
 
 with history_tab:
     st.subheader("Price History")
@@ -175,8 +175,8 @@ with history_tab:
             st.info("No history for this product yet.")
         else:
             fig = px.line(hist, x="scraped_at", y="price", color="source_platform", markers=True)
-            st.plotly_chart(fig, use_container_width=True)
-            st.dataframe(hist.sort_values("scraped_at", ascending=False), use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
+            st.dataframe(hist.sort_values("scraped_at", ascending=False), width="stretch")
 
 with compare_tab:
     st.subheader("Cheapest per keyword across all sites")
@@ -189,7 +189,7 @@ with compare_tab:
         st.dataframe(
             cheapest[[col for col in cols if col in cheapest.columns]],
             column_config={"product_url": st.column_config.LinkColumn("Product Link")},
-            use_container_width=True,
+            width="stretch",
         )
 
         st.subheader("Platform spread by keyword")
@@ -199,4 +199,4 @@ with compare_tab:
             .sort_values(["keyword", "price"])
         )
         fig = px.bar(spread, x="keyword", y="price", color="source_platform", barmode="group")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")

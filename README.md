@@ -1,137 +1,84 @@
-# SCRAPYv2
+# SCRAPYv1
 
-SCRAPYv2 is a price-tracking scraper with a FastAPI backend, static Vercel frontend, MongoDB storage, optional Streamlit dashboard, scheduled scraping, price history, and Telegram price-drop alerts.
+A Python product-price tracker with a FastAPI API and static dashboard. It normalizes store listings, stores observations in MongoDB, and compares prices across stores.
 
-## Architecture
+## What it does
+
+- Runs asynchronous scrape jobs with polling, timeouts and bounded concurrency.
+- Parses JSON-LD and store HTML; uses Playwright when browser rendering is needed.
+- Stores current listings, price history and target-price watches.
+- Groups likely equivalent products with Rapidfuzz and sends optional Telegram alerts.
+- Includes fixture tests and a six-hour GitHub Actions schedule.
+
+Six adapters are registered. Registration does not guarantee current store compatibility: selectors, stock availability and blocking can change. GSMArena is a specifications source, not a normal shopping price source.
+
+## Stack and architecture
+
+FastAPI, Pydantic, HTTPX, Requests, BeautifulSoup, selectolax, Playwright, MongoDB/PyMongo and Rapidfuzz. The optional Streamlit dashboard has separate dependencies.
 
 ```text
-                 GitHub Actions cron
-                         |
-                         v
-Vercel static UI --> FastAPI on Render -----> MongoDB Atlas
-                         |                         |
-                         |                         +--> products
-                         |                         +--> price_history
-                         |                         +--> watchlist
-                         |
-                         +--> Site adapters
-                         |     vijaysales, flipkart, amazon_in,
-                         |     croma, reliance_digital, gsmarena
-                         |
-                         +--> Upstash Redis dedup cache
-                         +--> Playwright renderer for JS-heavy sites
-                         +--> Telegram Bot API alerts
+Static frontend / scheduler -> FastAPI -> site adapter -> normalized listing
+                                                -> MongoDB products + history
+                                                -> optional Telegram alert
 ```
 
-## Setup
+`backend/api.py` owns HTTP routes and job state. `backend/scrapers/` holds the shared parsing/fetching code and distinct site adapters. `mongodb_db.py` owns persistence and indexes; `alerts.py` checks prior prices before new observations are saved. URL deduplication uses a MongoDB TTL collection. Redis and Supabase are not current runtime dependencies.
+
+## Run locally
+
+Use Python 3.13 (the version used by CI), then from the repository root:
+
+```powershell
+python -m venv backend/.venv
+backend/.venv/Scripts/python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+Copy-Item .env.example backend/.env
+backend/.venv/Scripts/python -m playwright install chromium
+cd backend
+.venv/Scripts/python -m uvicorn api:app --reload
+```
+
+On macOS/Linux use `backend/.venv/bin/python` and `cp .env.example backend/.env` instead. In a second terminal, run `python -m http.server 3000 --directory frontend` from the root and open http://localhost:3000. API docs are at http://127.0.0.1:8000/docs.
+
+## Environment
+
+| Variable | Purpose |
+| --- | --- |
+| `MONGODB_URI` | Server-only Atlas connection string; required for persistence |
+| `MONGODB_DB` | Dedicated database, default `scrapyv1` |
+| `VERCEL_FRONTEND_ORIGIN` | Additional allowed frontend origin |
+| `SCRAPE_API_KEY` | Protects scrape starts when set; always required for legacy scrapes and watch writes |
+| `PUBLIC_SCRAPE_ENABLED` | Set `true` to allow throttled public scrape starts alongside the operator key; defaults to `false` |
+| `PUBLIC_SCRAPE_COOLDOWN_SECONDS` | Public scrape cooldown, default 30 |
+| `MAX_CONCURRENT_JOBS` | Process job limit, default 2 |
+| `SCRAPER_TIMEOUT_SECONDS` | Per-adapter timeout, default 420; 0 disables it |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Optional Telegram delivery settings |
+
+Never put operator keys in static assets. Private API requests send `x-api-key`; the public browser demo uses the throttled public scrape mode. Proxy headers must be trusted by the server, rather than taken directly from arbitrary callers.
+
+## API and tests
+
+`POST /v2/scrape` and `/v2/scrape/all` return 202 with a job ID. Poll `GET /v2/scrape/{id}`. Product reads use `/v2/products`, `/cheapest`, `/compare` and `/{hash}/history`; `POST /v2/watch` is operator-protected. The deprecated `/scrape` contract remains for existing callers, with an operator key and restricted GSMArena URLs.
 
 ```powershell
 cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn api:app --reload
+.venv/Scripts/python -m pytest -q
 ```
 
-MongoDB indexes are created automatically before the first write. Products use a unique `(source_platform, product_url)` index.
+Tests cover fixture parsing, prices, relevance, matching, API validation/access control and alert logic without calling stores, MongoDB or Telegram.
 
-## Environment Variables
+## Deployment and limits
 
-Copy `.env.example` to `.env` and set:
+Render's blueprint builds `backend/Dockerfile`, including Chromium and its system libraries. It runs as a non-root user and listens on `PORT`. Root `/` is process liveness; `/health` reports dependency flags. Vercel serves `frontend/` through the existing static configuration. The deployed frontend API address is defined once in `frontend/index.html`; update it there if hosting changes.
 
-```env
-MONGODB_URI=
-MONGODB_DB=scrapyv1
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
-VERCEL_FRONTEND_ORIGIN=
-SCRAPE_API_KEY=
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-```
+Set GitHub Actions variable `SCRAPE_API_URL` and secret `SCRAPE_API_KEY` for scheduled scraping. The workflow fails on HTTP errors, failed jobs or polling timeout. The test workflow runs pytest on pushes and pull requests.
 
-`SCRAPE_API_KEY` optionally protects `/v2/scrape*` endpoints. When unset, scrape calls are public and protected by `PUBLIC_SCRAPE_COOLDOWN_SECONDS` and `MAX_CONCURRENT_JOBS`.
+Job metadata and cooldowns are process-local: run one API worker. Recent completed jobs are bounded, and a restart removes job status. Products persist independently. Product/history writes are not a single transaction, title changes can fragment hashes, and comparison matching is approximate. Live store reliability, Telegram delivery and Docker runtime must be checked in the deployment environment; local tests do not prove them.
 
-## API
+For the optional dashboard, install `pip install -r requirements-dashboard.txt` from the root, then run `streamlit run dashboard.py`. Its requirements include the backend parsers plus three visualization packages. Keep this tool local or behind operator access: it can run scrapers and write to MongoDB. Legacy CLI scripts and the one-time Supabase JSON importer remain available; keep backups and import history only once.
 
-Legacy compatibility:
+## Engineering lessons
 
-```http
-POST /scrape
-```
-
-Accepts the old `{ "site": "vijaysales", "keywords": [...], "pages": 2 }` payload.
-
-V2 async API:
-
-```http
-GET  /v2/scrapers
-POST /v2/scrape
-POST /v2/scrape/all
-GET  /v2/scrape/{job_id}
-GET  /v2/products
-GET  /v2/products/cheapest?keyword=iphone+15
-GET  /v2/products/compare?keyword=iphone+15
-GET  /v2/products/{product_hash}/history
-POST /v2/watch
-```
-
-## Add a New Adapter
-
-Scaffold a new adapter:
-
-```powershell
-python scripts/add_site.py myshop
-```
-
-Then edit `backend/scrapers/sites/myshop.py` and register it in `backend/scrapers/registry.py`:
-
-```python
-from scrapers.sites.myshop import MyshopScraper
-
-SCRAPERS = {
-    "myshop": MyshopScraper,
-}
-```
-
-Adapters usually subclass `BaseScraper`, implement `build_search_url()`, and use `JsonLdScraper` first before CSS fallbacks.
-
-## Deployment
-
-Render:
-
-- Use `render.yaml`.
-- Set `rootDir: backend`.
-- Add MongoDB, Telegram, and `SCRAPE_API_KEY` env vars in Render. URL deduplication uses a MongoDB TTL collection.
-- Start command: `uvicorn api:app --host 0.0.0.0 --port $PORT`.
-
-Vercel:
-
-- `vercel.json` serves `frontend/**` as static files.
-- The hosted UI uses `https://scrapyv1.onrender.com` automatically; users do not need to configure an API URL or key.
-
-GitHub Actions:
-
-- Set repository secret `SCRAPE_API_KEY`.
-- Set repository variable `SCRAPE_API_URL` to the deployed Render URL.
-- Edit `backend/tracked_keywords.json` to change scheduled scrape keywords.
-
-## Tests
-
-```powershell
-cd backend
-pip install -r requirements.txt -r requirements-dev.txt
-pytest
-```
-
-Tests use fixtures and mocks only. They do not call real stores, MongoDB, or Telegram.
-
-## Import existing Supabase data
-
-Export `products`, `price_history`, and `watchlist` as JSON from Supabase, then run:
-
-```bash
-python scripts/import_supabase_export.py --products products.json --history price_history.json --watchlist watchlist.json
-```
-
-The importer is repeat-safe for products and watchlist entries. Price-history exports should be imported once.
+- Browser rendering and static parsing need separate timeout/resource handling.
+- Dedup should follow successful persistence, so failed writes can be retried.
+- Async endpoints must not block on synchronous database drivers.
+- Mock and fixture tests catch parser and authorization regressions without depending on live stores.
