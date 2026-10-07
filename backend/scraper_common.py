@@ -19,7 +19,9 @@ def sleep_polite(a=1.2, b=2.5):
     time.sleep(random.uniform(a, b))
 
 def fetch(url: str, timeout=40) -> str:
-    r = requests.get(url, headers=HEADERS, timeout=timeout)
+    r = requests.get(url, headers=HEADERS, timeout=timeout, allow_redirects=False)
+    if 300 <= r.status_code < 400:
+        raise ValueError("Redirected URLs are not supported by the legacy scraper")
     r.raise_for_status()
     return r.text
 

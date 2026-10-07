@@ -33,3 +33,9 @@ pw_profile/
 # Local data files (optional — remove if you want to track them)
 # vijaysales_mobiles.json
 # scraped.json
+
+.env.*
+!.env.example
+.pytest_cache/
+scraped.json
+vijaysales_mobiles.json

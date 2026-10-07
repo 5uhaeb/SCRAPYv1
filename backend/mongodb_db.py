@@ -25,6 +25,12 @@ def _database():
     return _require_client()[name]
 
 
+def close_database() -> None:
+    if _require_client.cache_info().currsize:
+        _require_client().close()
+        _require_client.cache_clear()
+
+
 def _collection(name: str) -> Collection:
     return _database()[name]
 

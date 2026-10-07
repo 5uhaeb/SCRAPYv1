@@ -4,6 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
+    healthCheckPath: /
     envVars:
       - key: MONGODB_URI
         sync: false

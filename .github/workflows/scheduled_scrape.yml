@@ -18,12 +18,12 @@ jobs:
           SCRAPE_API_URL: ${{ vars.SCRAPE_API_URL }}
         run: |
           set -euo pipefail
-          API_URL="${SCRAPE_API_URL:-https://scrapy-api.onrender.com}"
+          API_URL="${SCRAPE_API_URL:-https://scrapyv1.onrender.com}"
           KEYWORDS="$(jq -c . backend/tracked_keywords.json)"
           PAYLOAD="$(jq -n --argjson keywords "$KEYWORDS" '{sites: [], keywords: $keywords, pages: 2}')"
           echo "Starting scheduled scrape against ${API_URL}"
           echo "Keywords: ${KEYWORDS}"
-          RESPONSE="$(curl -sS -X POST "${API_URL}/v2/scrape/all" \
+          RESPONSE="$(curl --fail-with-body --max-time 30 -sS -X POST "${API_URL}/v2/scrape/all" \
             -H "content-type: application/json" \
             -H "x-api-key: ${SCRAPE_API_KEY}" \
             -d "${PAYLOAD}")"
@@ -31,14 +31,18 @@ jobs:
           JOB_ID="$(echo "${RESPONSE}" | jq -r '.job_id // empty')"
           if [ -n "${JOB_ID}" ]; then
             echo "Job status URL: ${API_URL}/v2/scrape/${JOB_ID}"
-            for i in $(seq 1 30); do
-              STATUS_RESPONSE="$(curl -sS "${API_URL}/v2/scrape/${JOB_ID}")"
+            for i in $(seq 1 90); do
+              STATUS_RESPONSE="$(curl --fail-with-body --max-time 30 -sS "${API_URL}/v2/scrape/${JOB_ID}")"
               STATUS="$(echo "${STATUS_RESPONSE}" | jq -r '.status // "unknown"')"
               SAVED="$(echo "${STATUS_RESPONSE}" | jq -r '.saved_count // 0')"
               ALERTS="$(echo "${STATUS_RESPONSE}" | jq -r '.alert_count // 0')"
               RESULTS="$(echo "${STATUS_RESPONSE}" | jq -r '(.results // []) | length')"
               echo "Poll ${i}: status=${STATUS} saved=${SAVED} alerts=${ALERTS} results=${RESULTS}"
-              if [ "${STATUS}" = "complete" ] || [ "${STATUS}" = "failed" ]; then
+              if [ "${STATUS}" = "failed" ]; then
+                echo "Scrape job failed."
+                exit 1
+              fi
+              if [ "${STATUS}" = "complete" ]; then
                 echo "Final job payload: ${STATUS_RESPONSE}"
                 exit 0
               fi
@@ -46,3 +50,6 @@ jobs:
             done
             echo "Job still running after polling window."
           fi
+
+          echo "Job did not complete successfully within the polling window."
+          exit 1
