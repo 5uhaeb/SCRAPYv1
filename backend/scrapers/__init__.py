@@ -1,1 +1,1 @@
-"""Scraper package for SCRAPYv2."""
+"""Scraper package for SCRAPYv1."""

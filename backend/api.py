@@ -47,7 +47,7 @@ async def lifespan(app):
 API_DESCRIPTION = """
 ## Product price intelligence API
 
-SCRAPYv2 searches supported Indian e-commerce sites, normalizes product listings, stores
+SCRAPYv1 searches supported Indian e-commerce sites, normalizes product listings, stores
 current prices and historical observations in MongoDB, and exposes comparison and alert APIs.
 
 ### Typical workflow
@@ -91,12 +91,12 @@ OPENAPI_TAGS = [
 
 app = FastAPI(
     lifespan=lifespan,
-    title="SCRAPYv2 Price Intelligence API",
+    title="SCRAPYv1 Price Intelligence API",
     summary="Scrape, compare, and track e-commerce prices",
     description=API_DESCRIPTION,
     version="2.1.0",
     openapi_tags=OPENAPI_TAGS,
-    contact={"name": "SCRAPYv2 source", "url": "https://github.com/5uhaeb/SCRAPYv1"},
+    contact={"name": "SCRAPYv1 source", "url": "https://github.com/5uhaeb/SCRAPYv1"},
 )
 
 frontend_origin = os.getenv("VERCEL_FRONTEND_ORIGIN")
@@ -175,7 +175,7 @@ def require_operator_key(x_api_key: str | None = Header(default=None)) -> None:
 
 @app.get("/", tags=["Service"], summary="Describe the running API")
 async def home():
-    return {"message": "SCRAPYv2 API is running", "scrapers": sorted(SCRAPERS)}
+    return {"message": "SCRAPYv1 API is running", "scrapers": sorted(SCRAPERS)}
 
 
 @app.get("/scrapers", include_in_schema=False)
