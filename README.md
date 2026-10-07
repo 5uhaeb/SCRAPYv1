@@ -48,6 +48,7 @@ On macOS/Linux use `backend/.venv/bin/python` and `cp .env.example backend/.env`
 | `VERCEL_FRONTEND_ORIGIN` | Additional allowed frontend origin |
 | `SCRAPE_API_KEY` | Protects scrape starts when set; always required for legacy scrapes and watch writes |
 | `PUBLIC_SCRAPE_ENABLED` | Set `true` to allow throttled public scrape starts alongside the operator key; defaults to `false` |
+| `PUBLIC_SCRAPE_SHARED_COOLDOWN` | Set `true` behind Render's proxy to share the public cooldown across callers without trusting supplied forwarding headers |
 | `PUBLIC_SCRAPE_COOLDOWN_SECONDS` | Public scrape cooldown, default 30 |
 | `MAX_CONCURRENT_JOBS` | Process job limit, default 2 |
 | `SCRAPER_TIMEOUT_SECONDS` | Per-adapter timeout, default 420; 0 disables it |

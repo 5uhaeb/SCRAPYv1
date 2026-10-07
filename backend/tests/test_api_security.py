@@ -11,6 +11,7 @@ import alerts
 def client(monkeypatch):
     monkeypatch.setenv("SCRAPE_API_KEY", "test-operator-key")
     monkeypatch.delenv("PUBLIC_SCRAPE_ENABLED", raising=False)
+    monkeypatch.delenv("PUBLIC_SCRAPE_SHARED_COOLDOWN", raising=False)
     api.JOBS.clear()
     api.SCRAPE_REQUESTS.clear()
     return TestClient(api.app)
@@ -44,6 +45,17 @@ def test_database_errors_are_not_returned_to_clients(client, monkeypatch):
     response = client.get("/v2/products")
     assert response.status_code == 503
     assert "private-password" not in response.text
+
+
+def test_shared_public_cooldown_covers_changing_proxy_addresses(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_SCRAPE_ENABLED", "true")
+    monkeypatch.setenv("PUBLIC_SCRAPE_SHARED_COOLDOWN", "true")
+    monkeypatch.setattr(api, "_start_job", lambda *args: {"job_id": "test"})
+    first = TestClient(api.app, client=("10.0.0.1", 1234))
+    second = TestClient(api.app, client=("10.0.0.2", 1234))
+    body = {"sites": ["flipkart"], "keywords": ["phone"]}
+    assert first.post("/v2/scrape", json=body).status_code == 202
+    assert second.post("/v2/scrape", json=body).status_code == 429
 
 
 def test_public_demo_with_operator_key_keeps_throttling_and_protected_writes(client, monkeypatch):
