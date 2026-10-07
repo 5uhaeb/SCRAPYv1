@@ -10,6 +10,7 @@ import alerts
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("SCRAPE_API_KEY", "test-operator-key")
+    monkeypatch.delenv("PUBLIC_SCRAPE_ENABLED", raising=False)
     api.JOBS.clear()
     api.SCRAPE_REQUESTS.clear()
     return TestClient(api.app)
@@ -43,6 +44,18 @@ def test_database_errors_are_not_returned_to_clients(client, monkeypatch):
     response = client.get("/v2/products")
     assert response.status_code == 503
     assert "private-password" not in response.text
+
+
+def test_public_demo_with_operator_key_keeps_throttling_and_protected_writes(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_SCRAPE_ENABLED", "true")
+    monkeypatch.setattr(api, "_start_job", lambda *args: {"job_id": "test"})
+    body = {"sites": ["flipkart"], "keywords": ["phone"]}
+    assert client.post("/v2/scrape", json=body).status_code == 202
+    assert client.post("/v2/scrape", json=body).status_code == 429
+    assert client.post("/v2/scrape", json=body, headers={"x-api-key": "wrong"}).status_code == 401
+    assert client.post("/v2/scrape", json=body, headers={"x-api-key": "test-operator-key"}).status_code == 202
+    assert client.post("/v2/watch", json={"product_hash": "test", "target_price": 100}).status_code == 401
+    assert client.post("/scrape", json={"site": "gsmarena", "keywords": ["phone"]}).status_code == 401
 
 
 def test_keyword_and_price_validation(client):

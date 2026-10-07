@@ -62,8 +62,9 @@ current prices and historical observations in MongoDB, and exposes comparison an
 
 The hosted API is public. A client can start one scrape every **30 seconds**, and the service
 runs at most **two jobs concurrently**. A `429` response means the cooldown is active or all
-worker slots are busy. Private deployments may set `SCRAPE_API_KEY`; clients then send it in
-the `x-api-key` header instead of using public throttling.
+worker slots are busy. Set `SCRAPE_API_KEY` for operator requests, sent in the `x-api-key`
+header. With a key configured, public scraping additionally requires
+`PUBLIC_SCRAPE_ENABLED=true`; otherwise all scrape starts require the key.
 
 ### Persistence and job lifetime
 
@@ -185,7 +186,8 @@ async def scrapers():
 
 async def require_scrape_api_key(request: Request, x_api_key: str | None = Header(default=None)) -> None:
     expected = os.getenv("SCRAPE_API_KEY")
-    if expected:
+    public_enabled = os.getenv("PUBLIC_SCRAPE_ENABLED", "false").lower() == "true"
+    if expected and (x_api_key is not None or not public_enabled):
         if not secrets.compare_digest((x_api_key or "").encode(), expected.encode()):
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
         return
