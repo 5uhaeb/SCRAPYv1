@@ -16,6 +16,8 @@ services:
         sync: false
       - key: PUBLIC_SCRAPE_ENABLED
         value: "true"
+      - key: PUBLIC_SCRAPE_SHARED_COOLDOWN
+        value: "true"
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID

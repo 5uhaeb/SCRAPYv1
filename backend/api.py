@@ -60,7 +60,7 @@ current prices and historical observations in MongoDB, and exposes comparison an
 
 ### Scrape access and limits
 
-The hosted API is public. A client can start one scrape every **30 seconds**, and the service
+The hosted API is public. The demo allows one public scrape every **30 seconds**, and the service
 runs at most **two jobs concurrently**. A `429` response means the cooldown is active or all
 worker slots are busy. Set `SCRAPE_API_KEY` for operator requests, sent in the `x-api-key`
 header. With a key configured, public scraping additionally requires
@@ -199,7 +199,8 @@ async def require_scrape_api_key(request: Request, x_api_key: str | None = Heade
     now = time.monotonic()
     # Uvicorn applies headers only from configured trusted proxies. Do not trust a
     # caller-supplied X-Forwarded-For header independently here.
-    client_id = request.client.host if request.client else "unknown"
+    shared_cooldown = os.getenv("PUBLIC_SCRAPE_SHARED_COOLDOWN", "false").lower() == "true"
+    client_id = "shared-public-demo" if shared_cooldown else (request.client.host if request.client else "unknown")
     for client, started in list(SCRAPE_REQUESTS.items()):
         if now - started >= PUBLIC_SCRAPE_COOLDOWN_SECONDS:
             del SCRAPE_REQUESTS[client]
