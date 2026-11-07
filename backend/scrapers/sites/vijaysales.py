@@ -24,8 +24,11 @@ class VijaySalesScraper(BaseScraper):
         tree = HTMLParser(html)
         items: list[Item] = []
         seen = set()
-        for card in tree.css("div.product-card"):
-            link = card.css_first("a.product-card__link[href], a[href*='/p/']")
+        # Category layouts also expose product anchors without a product-card
+        # wrapper. This fallback follows the older working Vijay Sales parser.
+        cards = tree.css("div.product-card") or tree.css("a[href*='/p/']")
+        for card in cards:
+            link = card.css_first("a.product-card__link[href], a[href*='/p/']") or (card if card.tag == "a" else None)
             if not link:
                 continue
             href = link.attributes.get("href")
@@ -39,6 +42,9 @@ class VijaySalesScraper(BaseScraper):
             title_el = card.css_first(".product-card__title")
             title = self._clean_title(title_el.text(separator=" ") if title_el else link.text(separator=" "))
             if len(title) < 5:
+                image_title = link.css_first("img[alt]")
+                title = self._clean_title(image_title.attributes.get("alt", "") if image_title else "")
+            if len(title) < 5:
                 continue
             if not self._matches_keyword(title, keyword):
                 continue
@@ -48,10 +54,11 @@ class VijaySalesScraper(BaseScraper):
             if img:
                 image = img.attributes.get("src") or img.attributes.get("data-src")
 
-            price_el = card.css_first("[data-price], .discountedPrice, .clp-price-wrapper, .product-card__price")
+            price_container = card.parent if card.tag == "a" and card.parent else card
+            price_el = price_container.css_first("[data-price], .discountedPrice, .clp-price-wrapper, .product-card__price")
             price_source = price_el.attributes.get("data-price") if price_el and price_el.attributes.get("data-price") else None
             if not price_source:
-                price_source = price_el.text(separator=" ") if price_el else card.text(separator=" ")
+                price_source = price_el.text(separator=" ") if price_el else price_container.text(separator=" ")
 
             items.append(
                 Item(

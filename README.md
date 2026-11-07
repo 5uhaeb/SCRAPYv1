@@ -1,6 +1,34 @@
-# SCRAPYv1
+# Price Atlas (SCRAPYv1 repository)
 
 A Python product-price tracker with a FastAPI API and static dashboard. It normalizes store listings, stores observations in MongoDB, and compares prices across stores.
+
+## Shopper flow
+
+The public site accepts a product search and checks Amazon India, Flipkart,
+Croma, Reliance Digital, and Vijay Sales through the existing site adapters.
+The adapters run concurrently. For up to 24 returned listings, a separate
+bounded worker checks the corresponding public Buyhatke page. It records a
+consistent or different signal only when a product title and an INR price can
+be read from public structured data. Unavailable pages stay unavailable.
+
+Each successful store observation is saved to MongoDB and contributes to the
+historical chart. Buyhatke historical points are shown separately only when
+the public page contains explicit dated price attributes. Buyhatke does not
+document a public history feed for this workflow, so historical coverage from
+that source is best effort. No chart points or verification claims are inferred
+from a generic page, and the Buyhatke link lets shoppers inspect the source.
+
+The interface keeps its service address in code and presents only a product
+search to shoppers. The server still requires MongoDB and the deployment
+configuration described below; the public mode is rate limited.
+
+The implementation reviewed open source price trackers such as
+[price-taker](https://github.com/BiditaGogoi/price-taker) for structured-data
+fallbacks and append-only history, and
+[price-watcher](https://github.com/Shivakarunya-Pallerla/price-watcher) for
+scheduled observations. No third-party code was copied. Buyhatke's
+[public site](https://buyhatke.com/) documents its comparison and history
+features, but does not guarantee parseable data on every product page.
 
 ## What it does
 
