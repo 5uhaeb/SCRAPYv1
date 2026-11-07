@@ -1,0 +1,31 @@
+/* Price Atlas application styles using the original cartoon design tokens. */
+body { background: var(--bg); color: var(--ink); font-family: 'Space Grotesk', sans-serif; }
+header { background: var(--surface); border-bottom: 2.5px solid var(--outline); }
+.brand { color: var(--ink); font-family: 'Space Grotesk', sans-serif; }
+.brand b { background: var(--red); border: 2px solid var(--outline); box-shadow: 3px 3px 0 var(--outline); }
+.nav-note, .heading p, .status, .fact span, .chartlabels { color: var(--ink-mute); }
+.hero { background: var(--yellow); color: var(--ink); border-bottom: 2.5px solid var(--outline); }
+.hero h1 { color: var(--ink); font-family: 'Space Grotesk', sans-serif; }
+.hero p { color: var(--ink-soft); }
+.eyebrow { color: var(--blue-ink); }
+.hint { color: var(--ink-soft); }
+.search { background: var(--surface); border: 2.5px solid var(--outline); box-shadow: 6px 6px 0 var(--outline); }
+.search input { border: 0; box-shadow: none; background: var(--surface); color: var(--ink); }
+.search button { background: var(--blue); color: white; border: 2px solid var(--outline); box-shadow: 3px 3px 0 var(--outline); }
+.search button:hover { transform: translate(-1px,-1px); }
+.stat, .panel { background: var(--surface); border: 2.5px solid var(--outline); box-shadow: 5px 5px 0 var(--outline); }
+.stat:nth-child(2) { background: #e6efff; }
+.stat:nth-child(3) { background: #e6f8eb; }
+.stat span { color: var(--ink-mute); }
+.stat strong, .heading h2, .title, .price, .empty strong { color: var(--ink); font-family: 'Space Grotesk', sans-serif; }
+.offer { border: 2px solid var(--outline); background: var(--surface-2); box-shadow: 3px 3px 0 var(--outline); }
+.store, .view { color: var(--blue-ink); }
+.pill { border: 1.5px solid var(--outline); background: #e6efff; color: var(--ink-soft); }
+.pill.ok { background: #c9f2d7; color: var(--green-ink); }
+.pill.diff { background: #ffe3a8; color: var(--yellow-ink); }
+.fact { border-color: var(--outline); }
+.gridline { stroke: #c8c4b9; }
+.chartline { stroke: var(--blue); }
+.foot { border-top: 2px solid var(--outline); color: var(--ink-mute); }
+.viewbutton { display: inline-block; width: auto; color: var(--blue-ink); border: 0; box-shadow: none; }
+@media (max-width: 750px) { .hero { padding-top: 52px; } .search input { min-width: 0; } }
