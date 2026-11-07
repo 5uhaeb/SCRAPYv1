@@ -14,6 +14,7 @@ from selectolax.parser import HTMLParser, Node
 
 from scrapers.base import BaseScraper, BlockedError, Item, product_hash_for
 from scrapers.dedup import dedup_cache
+from scrapers.playwright_fetcher import browser_slot
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,10 @@ class FlipkartScraper(BaseScraper):
         return f"{self.base_url}/search?q={quote_plus(keyword)}&page={page}"
 
     async def fetch(self, url: str) -> str:
+        async with browser_slot:
+            return await self._fetch_browser(url)
+
+    async def _fetch_browser(self, url: str) -> str:
         from playwright.async_api import TimeoutError as PlaywrightTimeoutError
         from playwright.async_api import async_playwright
 

@@ -5,6 +5,10 @@ import sys
 
 logger = logging.getLogger(__name__)
 
+# Keep memory use bounded on the small production instance, including the
+# separate browser used by the Flipkart adapter.
+browser_slot = asyncio.Semaphore(1)
+
 
 class PlaywrightFetcher:
     def __init__(self):
@@ -64,6 +68,10 @@ class PlaywrightFetcher:
         )
 
     async def fetch(self, url: str, wait_ms: int = 1800) -> str:
+        async with browser_slot:
+            return await self._fetch_page(url, wait_ms)
+
+    async def _fetch_page(self, url: str, wait_ms: int = 1800) -> str:
         context = await self._ensure_context()
         page = await context.new_page()
         try:

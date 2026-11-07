@@ -164,7 +164,7 @@ SCRAPE_REQUESTS: dict[str, float] = {}
 PUBLIC_SCRAPE_COOLDOWN_SECONDS = int(os.getenv("PUBLIC_SCRAPE_COOLDOWN_SECONDS", "30"))
 MAX_CONCURRENT_JOBS = int(os.getenv("MAX_CONCURRENT_JOBS", "2"))
 # Long enough for slow Render Playwright runs; set to 0 to disable the safety cutoff.
-SCRAPER_TIMEOUT_SECONDS = int(os.getenv("SCRAPER_TIMEOUT_SECONDS", "420"))
+SCRAPER_TIMEOUT_SECONDS = int(os.getenv("SCRAPER_TIMEOUT_SECONDS", "60"))
 
 
 def require_operator_key(x_api_key: str | None = Header(default=None)) -> None:
@@ -379,8 +379,14 @@ async def _run_job(job_id: str):
     job.updated_at = datetime.now(timezone.utc)
     try:
         scrapers = [get_scraper(site) for site in job.sites]
+        async def collect(scraper):
+            items = await _run_scraper_with_timeout(scraper, job)
+            job.results.extend(item.model_dump(mode="json") for item in items)
+            job.updated_at = datetime.now(timezone.utc)
+            return items
+
         results_by_site = await asyncio.gather(
-            *(_run_scraper_with_timeout(scraper, job) for scraper in scrapers),
+            *(collect(scraper) for scraper in scrapers),
             return_exceptions=True,
         )
 
@@ -401,7 +407,7 @@ async def _run_job(job_id: str):
         # The independent public-page checks run concurrently, with a bounded
         # number of requests. Their absence must never turn into a false match.
         try:
-            verification = await verify_listings(all_items)
+            verification = await asyncio.wait_for(verify_listings(all_items), timeout=20)
         except Exception:
             logger.exception("Independent price checks failed")
             verification = [{"status": "unavailable", "price": None, "history": [], "url": None} for _ in all_items]
@@ -418,7 +424,13 @@ async def _run_job(job_id: str):
         except Exception:
             errors.append("Telegram alert delivery failed")
 
-        saved = await asyncio.to_thread(upsert_products, all_items)
+        job.results = [item.model_dump(mode="json") for item in all_items]
+        try:
+            saved = await asyncio.to_thread(upsert_products, all_items)
+        except Exception:
+            logger.exception("Could not save price observations")
+            saved = 0
+            errors.append("Price history could not be saved")
         if saved > 0:
             for scraper in scrapers:
                 for url in scraper.last_fetched_urls:
