@@ -16,6 +16,9 @@ SCRAPERS: dict[str, type[BaseScraper]] = {
     "gsmarena": GSMArenaScraper,
 }
 
+# GSMArena provides specifications rather than retailer offers.
+SHOPPING_SITES = tuple(site for site in SCRAPERS if site != "gsmarena")
+
 
 ALIASES = {
     "amazon": "amazon_in",

@@ -15,11 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from alerts import add_watch, evaluate_price_alerts
+from buyhatke import verify_listings
 from matching import match_products
 from scraper_common import run_scrape
 from scrapers.dedup import dedup_cache
 from scrapers.playwright_fetcher import playwright_fetcher
-from scrapers.registry import SCRAPERS, get_scraper
+from scrapers.registry import SCRAPERS, SHOPPING_SITES, get_scraper
 from scrape_vijaysales import run as run_vijaysales
 from scrape_webscraper_ecom import run as run_webscraper
 from mongodb_db import (
@@ -153,6 +154,7 @@ class Job(BaseModel):
     results: list[dict] = Field(default_factory=list)
     saved_count: int = 0
     alert_count: int = 0
+    verification: dict = Field(default_factory=dict)
     error: str | None = None
 
 
@@ -244,6 +246,7 @@ async def scrape_legacy(req: LegacyScrapeRequest, _: None = Depends(require_oper
 
 
 @app.post("/v2/scrape", status_code=status.HTTP_202_ACCEPTED, tags=["Scraping"], summary="Start a scrape job", description="Queues an asynchronous scrape for selected sites. Use the returned `status_url` to monitor it. Public cooldown and concurrency limits apply.")
+@app.post("/v2/compare", status_code=status.HTTP_202_ACCEPTED, include_in_schema=False)
 async def scrape(req: ScrapeRequest, _: None = Depends(require_scrape_api_key)):
     sites = [site.strip().lower() for site in req.sites if site.strip()]
     if not sites:
@@ -253,10 +256,11 @@ async def scrape(req: ScrapeRequest, _: None = Depends(require_scrape_api_key)):
 
 @app.post("/v2/scrape/all", status_code=status.HTTP_202_ACCEPTED, tags=["Scraping"], summary="Scrape every registered site", description="Queues all registered adapters for the supplied keywords. This is heavier than selecting individual sites.")
 async def scrape_all(req: ScrapeRequest, _: None = Depends(require_scrape_api_key)):
-    return _start_job(list(SCRAPERS), req.keywords, req.pages, req.force)
+    return _start_job(list(SHOPPING_SITES), req.keywords, req.pages, req.force)
 
 
 @app.get("/v2/scrape/{job_id}", tags=["Scraping"], summary="Get scrape job status", description="Returns lifecycle timestamps, normalized results, saved and alert counts, and any per-site error details. Poll until `complete` or `failed`.")
+@app.get("/v2/compare/{job_id}", include_in_schema=False)
 async def scrape_status(job_id: str):
     job = JOBS.get(job_id)
     if not job:
@@ -394,6 +398,20 @@ async def _run_job(job_id: str):
             else:
                 all_items.extend(result)
 
+        # The independent public-page checks run concurrently, with a bounded
+        # number of requests. Their absence must never turn into a false match.
+        try:
+            verification = await verify_listings(all_items)
+        except Exception:
+            logger.exception("Independent price checks failed")
+            verification = [{"status": "unavailable", "price": None, "history": [], "url": None} for _ in all_items]
+        for item, check in zip(all_items, verification):
+            item.raw["buyhatke"] = check
+        job.verification = {
+            "matched": sum(check["status"] == "matched" for check in verification),
+            "different": sum(check["status"] == "different" for check in verification),
+            "unavailable": sum(check["status"] in {"unavailable", "unsupported"} for check in verification),
+        }
         alerts = []
         try:
             alerts = await evaluate_price_alerts(all_items)
