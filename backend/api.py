@@ -333,6 +333,7 @@ async def health():
         "db": dedup_ok,
         "dedup": dedup_ok,
         "playwright": playwright_fetcher.ready,
+        "search_timeout_seconds": SCRAPER_TIMEOUT_SECONDS,
         "registered_scrapers": sorted(SCRAPERS),
     }
 
